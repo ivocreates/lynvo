@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 441 221" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-1609,-756)">
+        <g transform="matrix(1,0,0,1,2129.980014,616.845404)">
+            <g id="Logomark-Dark-Mode" serif:id="Logomark Dark Mode">
+                <g transform="matrix(0,-3.173077,3.870968,-0,-2495.891522,1374.767695)">
+                    <path d="M386.661,541.439C388.029,541.439 389.139,542.348 389.139,543.47C389.139,543.471 389.139,543.471 389.139,543.471C389.139,548.413 386.744,553.153 382.481,556.648C378.218,560.142 372.435,562.105 366.406,562.105L322.284,562.105C320.915,562.105 319.806,561.196 319.806,560.074C319.806,560.073 319.806,560.073 319.806,560.073C319.806,555.131 322.201,550.391 326.464,546.896C330.727,543.402 336.509,541.439 342.538,541.439L386.661,541.439Z" style="fill:rgb(53,92,116);"/>
+                </g>
+                <g transform="matrix(2.727273,-0,-0,2.727273,-1364.9243,-1617.291487)">
+                    <circle cx="324.472" cy="686.105" r="14.667" style="fill:rgb(92,129,149);"/>
+                </g>
+                <g transform="matrix(2.727273,-0,-0,2.727273,-1124.9243,-1617.291487)">
+                    <circle cx="324.472" cy="686.105" r="14.667" style="fill:rgb(53,92,116);"/>
+                </g>
+                <g transform="matrix(2.727273,-0,-0,2.727273,-1004.9243,-1617.291487)">
+                    <circle cx="324.472" cy="686.105" r="14.667" style="fill:rgb(92,129,149);"/>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

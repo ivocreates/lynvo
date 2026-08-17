@@ -1,0 +1,37 @@
+# LYNVO
+
+> Linking Ideas to Innovation
+
+LYNVO is a digital studio founded by Ivo Pereira in Sawantwadi, Maharashtra, India. The studio builds, redesigns, troubleshoots, and ships digital products for local and global clients.
+
+## Services
+
+- Web development with React, Next.js, Node.js, and Laravel
+- UI/UX and brand design
+- Brand identity and graphics
+- Social media management
+- SEO and geo optimization
+- VAPT and security audits
+- Mobile and progressive web applications
+- Web3 and blockchain development
+- Custom software and workflow automation
+- Digital strategy and go-to-market planning
+
+## Website
+
+- Home: https://lynvo.tech/
+- About: https://lynvo.tech/about
+- Services: https://lynvo.tech/services
+- Work: https://lynvo.tech/archive
+- Blog: https://lynvo.tech/blog
+- Contact: https://lynvo.tech/contact
+
+## Contact
+
+Email: contact@lynvo.tech
+Location: Sawantwadi, Maharashtra, India
+Availability: Global projects
+
+## Attribution
+
+LYNVO Web Page © 2026 by Ivo Pereira is licensed under CC BY-NC-ND 4.0.

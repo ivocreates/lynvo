@@ -1,0 +1,195 @@
+export type FieldType =
+  | "text"
+  | "textarea"
+  | "markdown"
+  | "slug"
+  | "number"
+  | "boolean"
+  | "select"
+  | "tags"
+  | "json"
+  | "url"
+  | "datetime";
+
+export interface FieldConfig {
+  name: string;
+  label: string;
+  type: FieldType;
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  help?: string;
+  min?: number;
+  max?: number;
+  /** Shown as a column in the list view. */
+  inList?: boolean;
+}
+
+export interface ResourceConfig {
+  key: string;
+  table: string;
+  label: string;
+  labelSingular: string;
+  /** Column used as the row heading in lists and audit metadata. */
+  titleField: string;
+  fields: FieldConfig[];
+  orderBy: { column: string; ascending: boolean };
+  searchColumns: string[];
+}
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "published", label: "Published" },
+];
+
+const SEO_FIELDS: FieldConfig[] = [
+  { name: "seo_title", label: "SEO title", type: "text" },
+  { name: "seo_description", label: "SEO description", type: "textarea" },
+];
+
+export const RESOURCES: ResourceConfig[] = [
+  {
+    key: "projects",
+    table: "projects",
+    label: "Projects",
+    labelSingular: "Project",
+    titleField: "title",
+    orderBy: { column: "created_at", ascending: false },
+    searchColumns: ["title", "slug", "category"],
+    fields: [
+      { name: "title", label: "Title", type: "text", required: true, inList: true },
+      { name: "slug", label: "Slug", type: "slug", required: true, inList: true, help: "Lowercase, hyphenated. Used in the public URL." },
+      { name: "status", label: "Status", type: "select", required: true, options: STATUS_OPTIONS, inList: true },
+      { name: "category", label: "Category", type: "text", inList: true },
+      { name: "industry", label: "Industry", type: "text" },
+      { name: "excerpt", label: "Excerpt", type: "textarea" },
+      { name: "content", label: "Content (JSON)", type: "json", help: "Structured case-study blocks." },
+      { name: "tags", label: "Tags", type: "tags", help: "Comma separated." },
+      { name: "featured", label: "Featured", type: "boolean", inList: true },
+      { name: "image_url", label: "Image URL", type: "url" },
+      ...SEO_FIELDS,
+    ],
+  },
+  {
+    key: "services",
+    table: "services",
+    label: "Services",
+    labelSingular: "Service",
+    titleField: "title",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["title", "slug"],
+    fields: [
+      { name: "title", label: "Title", type: "text", required: true, inList: true },
+      { name: "slug", label: "Slug", type: "slug", required: true, inList: true },
+      { name: "excerpt", label: "Excerpt", type: "textarea" },
+      { name: "content", label: "Content (JSON)", type: "json", help: "Process, deliverables, FAQ." },
+      { name: "tags", label: "Tags", type: "tags" },
+      { name: "active", label: "Active", type: "boolean", inList: true },
+      { name: "featured", label: "Featured", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+      { name: "image_url", label: "Image URL", type: "url" },
+      ...SEO_FIELDS,
+    ],
+  },
+  {
+    key: "blog",
+    table: "blog_posts",
+    label: "Blog posts",
+    labelSingular: "Blog post",
+    titleField: "title",
+    orderBy: { column: "created_at", ascending: false },
+    searchColumns: ["title", "slug"],
+    fields: [
+      { name: "title", label: "Title", type: "text", required: true, inList: true },
+      { name: "slug", label: "Slug", type: "slug", required: true, inList: true },
+      { name: "status", label: "Status", type: "select", required: true, options: STATUS_OPTIONS, inList: true },
+      { name: "excerpt", label: "Excerpt", type: "textarea" },
+      { name: "content", label: "Content", type: "markdown" },
+      { name: "tags", label: "Tags", type: "tags" },
+      { name: "cover_image_url", label: "Cover image URL", type: "url" },
+      { name: "published_at", label: "Publish date", type: "datetime", inList: true, help: "Set automatically when you publish without a date." },
+      ...SEO_FIELDS,
+    ],
+  },
+  {
+    key: "team",
+    table: "team_members",
+    label: "Team",
+    labelSingular: "Team member",
+    titleField: "display_name",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["display_name", "role"],
+    fields: [
+      { name: "display_name", label: "Name", type: "text", required: true, inList: true },
+      { name: "role", label: "Role", type: "text", inList: true },
+      { name: "bio", label: "Bio", type: "textarea" },
+      { name: "skills", label: "Skills", type: "tags" },
+      { name: "social_links", label: "Social links (JSON)", type: "json", help: '{"linkedin":"https://..."}' },
+      { name: "image_url", label: "Photo URL", type: "url" },
+      { name: "is_active", label: "Active", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+    ],
+  },
+  {
+    key: "reviews",
+    table: "reviews",
+    label: "Reviews",
+    labelSingular: "Review",
+    titleField: "author_name",
+    orderBy: { column: "created_at", ascending: false },
+    searchColumns: ["author_name", "author_role"],
+    fields: [
+      { name: "author_name", label: "Author", type: "text", required: true, inList: true },
+      { name: "author_role", label: "Author role", type: "text", inList: true },
+      { name: "content", label: "Testimonial", type: "textarea", required: true },
+      { name: "rating", label: "Rating (1-5)", type: "number", min: 1, max: 5, inList: true },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        inList: true,
+        options: [
+          { value: "pending", label: "Pending" },
+          { value: "approved", label: "Approved" },
+          { value: "rejected", label: "Rejected" },
+        ],
+      },
+      { name: "featured", label: "Featured", type: "boolean", inList: true },
+    ],
+  },
+  {
+    key: "stats",
+    table: "stats",
+    label: "Statistics",
+    labelSingular: "Statistic",
+    titleField: "label",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["label"],
+    fields: [
+      { name: "label", label: "Label", type: "text", required: true, inList: true },
+      { name: "value", label: "Value", type: "text", required: true, inList: true },
+      { name: "suffix", label: "Suffix", type: "text", inList: true },
+      { name: "active", label: "Active", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+    ],
+  },
+  {
+    key: "social",
+    table: "social_links",
+    label: "Social links",
+    labelSingular: "Social link",
+    titleField: "platform",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["platform"],
+    fields: [
+      { name: "platform", label: "Platform", type: "text", required: true, inList: true },
+      { name: "url", label: "URL", type: "url", required: true, inList: true },
+      { name: "active", label: "Active", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+    ],
+  },
+];
+
+export function getResource(key: string) {
+  return RESOURCES.find((resource) => resource.key === key);
+}
