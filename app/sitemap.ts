@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/env";
 
 const routes = ["", "/about", "/services", "/archive", "/blog", "/team", "/reviews", "/contact", "/llm.txt"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.SITE_URL ?? "https://lynvo.tech";
+  const baseUrl = getSiteUrl("https://lynvo.tech");
   return routes.map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),

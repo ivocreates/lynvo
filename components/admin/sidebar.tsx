@@ -15,6 +15,8 @@ import {
   Link2,
   Settings,
   ShieldCheck,
+  ReceiptText,
+  Package,
 } from "lucide-react";
 import type { Role } from "@/lib/auth";
 
@@ -28,6 +30,8 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?
   { href: "/admin/stats", label: "Statistics", icon: BarChart3 },
   { href: "/admin/social", label: "Social links", icon: Link2 },
   { href: "/admin/contacts", label: "Contacts", icon: Inbox, minRole: "admin" },
+  { href: "/admin/billing", label: "Quotes & invoices", icon: ReceiptText },
+  { href: "/admin/billing-items", label: "Billing items", icon: Package },
   { href: "/admin/media", label: "Media", icon: ImageIcon },
   { href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" },
   { href: "/admin/admins", label: "Admins", icon: ShieldCheck, minRole: "super_admin" },
@@ -48,7 +52,9 @@ export default function Sidebar({ role }: { role: Role }) {
         {visible.map((item) => {
           const Icon = item.icon;
           const active =
-            item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+            item.href === "/admin"
+              ? pathname === "/admin"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <li key={item.href}>

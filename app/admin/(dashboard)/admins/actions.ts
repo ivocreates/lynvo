@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin, recordAudit } from "@/lib/auth";
+import { getSiteUrl } from "@/lib/env";
 
 export type AdminsState = { ok: boolean; message: string };
 
@@ -44,7 +45,7 @@ export async function inviteStaff(_prev: AdminsState, formData: FormData): Promi
   }
 
   const admin = createAdminClient();
-  const redirectTo = `${process.env.SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/admin/update-password`;
+  const redirectTo = `${getSiteUrl()}/auth/confirm?next=/admin/update-password`;
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
 

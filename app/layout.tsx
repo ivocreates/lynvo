@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope, JetBrains_Mono } from "next/font/google";
+import { getSiteUrl } from "@/lib/env";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -21,7 +22,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: "LYNVO - Linking Ideas to Innovation",
     template: "%s · LYNVO",

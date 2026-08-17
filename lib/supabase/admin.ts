@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseUrl } from "@/lib/env";
 
 /**
  * Service-role client. Bypasses RLS — use only for narrowly scoped trusted
@@ -13,7 +14,7 @@ export function createAdminClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
   }
 
-  return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+  return createSupabaseClient(getSupabaseUrl(), serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

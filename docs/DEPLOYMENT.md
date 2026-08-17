@@ -14,13 +14,33 @@ Never share Auth users, Storage buckets, service-role keys, or lead data between
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 RESEND_API_KEY=
+CONTACT_NOTIFICATION_TO=
 SITE_URL=
 ```
 
 Service role and Resend credentials remain server-only. Configure exact Auth redirect URLs and email templates in Supabase. Deploy on a platform that supports the current Next.js App Router server runtime.
+
+## Cloudflare Workers
+
+The app deploys to Cloudflare Workers through the OpenNext adapter:
+
+```
+npm run build:cf    # next build + opennextjs-cloudflare build -> .open-next/
+npm run deploy:cf   # build, then wrangler deploy
+npm run preview:cf  # build, then run the Worker locally
+```
+
+`wrangler.toml` points `main` at `.open-next/worker.js` and serves `.open-next/assets` through the `ASSETS` binding. In the Cloudflare dashboard set the project's **build command** to `npm run build:cf`; the deploy command stays `npx wrangler deploy`.
+
+Both `NEXT_PUBLIC_*` values must be set in **two** places, because Next.js inlines them into the browser bundle at build time and the server reads them again at runtime:
+
+1. **Build variables** — Workers Builds settings. Missing values here silently produce an admin area that cannot sign in, a CSP that blocks Supabase, and empty public pages.
+2. **Runtime variables and secrets** — Worker settings. Add `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` and `CONTACT_NOTIFICATION_TO` as encrypted secrets, never as plain vars, and never in `wrangler.toml`.
+
+`lib/env.ts` throws a descriptive error when a Supabase variable is absent, so a misconfigured deploy fails visibly instead of rendering blank content.
 
 ## Release Pipeline
 

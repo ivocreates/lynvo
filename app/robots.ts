@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/env";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.SITE_URL ?? "https://lynvo.tech";
+  const baseUrl = getSiteUrl("https://lynvo.tech");
   return {
     rules: [{ userAgent: "*", allow: "/", disallow: ["/admin/", "/api/"] }],
     sitemap: `${baseUrl}/sitemap.xml`,

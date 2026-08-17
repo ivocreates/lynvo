@@ -188,6 +188,25 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "order", label: "Order", type: "number", min: 0, inList: true },
     ],
   },
+  {
+    key: "billing-items",
+    table: "billing_items",
+    label: "Billing items",
+    labelSingular: "Billing item",
+    titleField: "name",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["name", "hsn_sac"],
+    fields: [
+      { name: "name", label: "Name", type: "text", required: true, inList: true },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "unit", label: "Unit", type: "text", inList: true, help: "e.g. hour, page, project, month." },
+      { name: "unit_price", label: "Unit price", type: "number", min: 0, inList: true },
+      { name: "tax_rate", label: "Tax rate (%)", type: "number", min: 0, max: 100, inList: true },
+      { name: "hsn_sac", label: "HSN / SAC", type: "text" },
+      { name: "active", label: "Active", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+    ],
+  },
 ];
 
 export function getResource(key: string) {

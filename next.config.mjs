@@ -12,7 +12,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace("https://", "wss://")}`.trim(),
+  // Wildcards keep Supabase reachable even if the build-time URL var is absent.
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${supabaseOrigin} ${supabaseOrigin.replace("https://", "wss://")}`.trim(),
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
