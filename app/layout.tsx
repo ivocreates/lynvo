@@ -23,14 +23,15 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL ?? "http://localhost:3000"),
   title: {
-    default: "LYNVO — Consistent. Clear. Confident.",
+    default: "LYNVO - Linking Ideas to Innovation",
     template: "%s · LYNVO",
   },
   description:
     "LYNVO is a digital studio that builds, redesigns, troubleshoots, and ships websites, brands, software, and growth systems.",
   keywords: ["digital studio", "web development", "brand design", "SEO", "cybersecurity", "Web3", "Sawantwadi"],
   alternates: { canonical: "/" },
-  icons: { icon: "/favicon.ico" },
+  icons: { icon: "/favicon.png" },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

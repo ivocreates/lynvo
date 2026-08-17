@@ -39,6 +39,7 @@ export type Project = {
   content: Record<string, unknown> | null;
   tags: string[] | null;
   image_url: string | null;
+  featured: boolean;
 };
 
 export type BlogPost = {

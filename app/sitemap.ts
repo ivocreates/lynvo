@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const routes = ["", "/about", "/services", "/archive", "/blog", "/team", "/reviews", "/contact"];
+const routes = ["", "/about", "/services", "/archive", "/blog", "/team", "/reviews", "/contact", "/llm.txt"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.SITE_URL ?? "https://lynvo.tech";

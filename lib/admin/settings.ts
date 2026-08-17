@@ -1,10 +1,17 @@
 export const SETTING_KEYS = [
   { key: "site_name", label: "Site name", type: "text" as const },
   { key: "tagline", label: "Tagline", type: "text" as const },
+  { key: "hero_kicker", label: "Hero kicker", type: "text" as const },
+  { key: "hero_headline", label: "Hero headline", type: "textarea" as const },
+  { key: "hero_description", label: "Hero description", type: "textarea" as const },
   { key: "contact_email", label: "Contact email", type: "text" as const },
   { key: "contact_phone", label: "Contact phone", type: "text" as const },
   { key: "address", label: "Address", type: "textarea" as const },
+  { key: "response_time", label: "Response time", type: "textarea" as const },
+  { key: "footer_command", label: "Footer command", type: "text" as const },
+  { key: "footer_status", label: "Footer status", type: "text" as const },
   { key: "footer_note", label: "Footer note", type: "textarea" as const },
+  { key: "legal_note", label: "Legal note", type: "textarea" as const },
   { key: "default_seo_title", label: "Default SEO title", type: "text" as const },
   { key: "default_seo_description", label: "Default SEO description", type: "textarea" as const },
 ];

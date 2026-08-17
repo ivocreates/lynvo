@@ -4,9 +4,16 @@
 insert into site_settings (key, value) values
   ('site_name', '{"text":"LYNVO"}'),
   ('tagline', '{"text":"Linking Ideas to Innovation"}'),
+  ('hero_kicker', '{"text":"Now booking Q4 projects"}'),
+  ('hero_headline', '{"text":"We turn bold ideas into digital momentum. Built to scale."}'),
+  ('hero_description', '{"text":"From launch-ready websites to product-grade applications, we blend design strategy, engineering discipline, and business context so every release moves your brand forward."}'),
   ('contact_email', '{"text":"contact@lynvo.tech"}'),
-  ('address', '{"text":"Sawantwadi, Maharashtra, India - Available for global projects"}'),
-  ('footer_note', '{"text":"LYNVO STUDIO OS - v2.0 - Build 2026"}'),
+  ('address', '{"text":"Sawantwadi, Maharashtra, India · Available for global projects"}'),
+  ('response_time', '{"text":"We respond within 24 hours with a thoughtful, personalized response — not a template."}'),
+  ('footer_command', '{"text":"$ lynvo --status"}'),
+  ('footer_status', '{"text":"Studio online"}'),
+  ('footer_note', '{"text":"LYNVO STUDIO OS · v2.0 · Build 2026"}'),
+  ('legal_note', '{"text":"LYNVO Web Page © 2026 by Ivo Pereira is licensed under CC BY-NC-ND 4.0."}'),
   ('default_seo_title', '{"text":"LYNVO - Linking Ideas to Innovation"}'),
   ('default_seo_description', '{"text":"Lynvo is a digital studio that builds, redesigns, troubleshoots, and ships websites, brands, software, and growth systems."}')
 on conflict (key) do update set value = excluded.value, updated_at = now();

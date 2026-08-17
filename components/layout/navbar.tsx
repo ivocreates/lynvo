@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import logo from "@/assets/logo/Horizontal Logo/Light/Horizontal Logo Light Mode.png";
 
 const links = [
   { href: "/about", label: "About" },
@@ -13,11 +15,11 @@ const links = [
 export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-canvas-warm/90 backdrop-blur">
-      <nav className="container-page flex h-16 items-center justify-between">
-        <Link href="/" className="font-display text-lg font-semibold text-ink-900">
-          LYNVO
+      <nav className="container-page flex h-20 items-center justify-between gap-6">
+        <Link href="/" className="flex items-center gap-3">
+          <Image src={logo} alt="LYNVO" width={168} height={48} className="h-10 w-auto" priority />
         </Link>
-        <ul className="hidden items-center gap-6 md:flex">
+        <ul className="hidden items-center gap-6 lg:flex">
           {links.map((link) => (
             <li key={link.href}>
               <Link
