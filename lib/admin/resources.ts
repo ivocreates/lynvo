@@ -301,6 +301,13 @@ export const RESOURCES: ResourceConfig[] = [
         help: "0 = Sunday … 6 = Saturday. Used by recurring cadences.",
       },
       { name: "start_time", label: "Start time", type: "text", required: true, inList: true, help: "24-hour HH:MM." },
+      {
+        name: "timezone",
+        label: "Timezone",
+        type: "text",
+        required: true,
+        help: "IANA name, e.g. Asia/Kolkata. The start time is read in this zone.",
+      },
       { name: "duration_minutes", label: "Duration (min)", type: "number", min: 5, max: 480 },
       { name: "starts_on", label: "Date", type: "text", help: "YYYY-MM-DD, for one-off meetings only." },
       { name: "location", label: "Location / link", type: "text", inList: true },

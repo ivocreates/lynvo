@@ -4,7 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 
 export type { Role } from "@/lib/roles";
-export { ROLES, ROLE_LABELS, ROLE_RANK, EMPLOYMENT_TYPES, isRole, hasCmsAccess } from "@/lib/roles";
+export {
+  ROLES,
+  STAFF_ROLES,
+  ROLE_LABELS,
+  ROLE_RANK,
+  EMPLOYMENT_TYPES,
+  isRole,
+  hasCmsAccess,
+  isClient,
+} from "@/lib/roles";
 
 export interface Profile {
   id: string;
@@ -19,10 +28,11 @@ export interface Profile {
   ends_on: string | null;
   manager_id: string | null;
   avatar_url: string | null;
+  client_id: string | null;
 }
 
 const PROFILE_COLUMNS =
-  "id, email, display_name, role, is_active, title, department, employment_type, joined_on, ends_on, manager_id, avatar_url";
+  "id, email, display_name, role, is_active, title, department, employment_type, joined_on, ends_on, manager_id, avatar_url, client_id";
 
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = createClient();
@@ -48,11 +58,23 @@ export async function requireRole(minimum: Role): Promise<Profile> {
 
   if (!profile) redirect("/admin/login");
   if (ROLE_RANK[profile.role] < ROLE_RANK[minimum]) {
-    // Employees and interns have no CMS access; send them to their own dashboard.
+    // Clients and sub-editor staff each have their own home.
+    if (profile.role === "client") redirect("/client");
     redirect(ROLE_RANK[profile.role] < ROLE_RANK.editor ? "/staff" : "/admin?denied=1");
   }
 
   return profile;
+}
+
+/** A signed-in client, scoped to the company they belong to. */
+export async function requireClient(): Promise<Profile & { client_id: string }> {
+  const profile = await getCurrentProfile();
+
+  if (!profile) redirect("/admin/login");
+  if (profile.role !== "client") redirect("/admin");
+  if (!profile.client_id) redirect("/admin/login?unlinked=1");
+
+  return profile as Profile & { client_id: string };
 }
 
 /** Anyone active on the team, interns included. */

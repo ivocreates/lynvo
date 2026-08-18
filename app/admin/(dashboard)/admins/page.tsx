@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, hasRole } from "@/lib/auth";
-import { ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
+import { ROLES, STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
 import PageHeader from "@/components/admin/page-header";
 import InviteForm from "@/components/admin/invite-form";
 import { updateStaffAccess, updateStaffDetails } from "./actions";
@@ -21,7 +21,7 @@ export default async function PeoplePage() {
     )
     .order("created_at", { ascending: true });
 
-  const people = (data ?? []) as Record<string, any>[];
+  const people = ((data ?? []) as Record<string, any>[]).filter((person) => person.role !== "client");
   const managers = people.filter((person) =>
     ["junior_partner", "admin", "senior_partner", "super_admin"].includes(person.role)
   );
@@ -207,7 +207,7 @@ export default async function PeoplePage() {
                           defaultValue={person.role}
                           className={FIELD_CLASS}
                         >
-                          {ROLES.map((role) => (
+                          {STAFF_ROLES.map((role) => (
                             <option key={role} value={role}>
                               {ROLE_LABELS[role]}
                             </option>

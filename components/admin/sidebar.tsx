@@ -23,11 +23,13 @@ import {
   CalendarClock,
   FileSignature,
   Award,
+  Building2,
 } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 
 const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/clients", label: "Clients", icon: Building2 },
   { href: "/admin/tasks", label: "Tasks", icon: ListChecks, minRole: "junior_partner" },
   { href: "/admin/meetings", label: "Meetings", icon: CalendarClock, minRole: "junior_partner" },
   { href: "/admin/documents", label: "HR documents", icon: FileSignature, minRole: "junior_partner" },

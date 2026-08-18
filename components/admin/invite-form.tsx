@@ -2,7 +2,7 @@
 
 import { useFormState } from "react-dom";
 import { inviteStaff, type AdminsState } from "@/app/admin/(dashboard)/admins/actions";
-import { ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
+import { STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
 import SubmitButton from "./submit-button";
 
 const initialState: AdminsState = { ok: false, message: "" };
@@ -36,7 +36,7 @@ export default function InviteForm() {
             defaultValue="employee"
             className="mt-1 w-full rounded-card border border-border bg-canvas-warm px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
           >
-            {ROLES.map((role) => (
+            {STAFF_ROLES.map((role) => (
               <option key={role} value={role}>
                 {ROLE_LABELS[role]}
               </option>

@@ -10,7 +10,8 @@ const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password", "/admin/upd
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublicAdminPath = PUBLIC_ADMIN_PATHS.includes(pathname);
-  const isGuarded = pathname.startsWith("/admin") || pathname.startsWith("/staff");
+  const isGuarded =
+    pathname.startsWith("/admin") || pathname.startsWith("/staff") || pathname.startsWith("/client");
   const supabaseUrl = getSupabaseUrlValue();
   const supabaseAnonKey = getSupabaseAnonKeyValue();
 
