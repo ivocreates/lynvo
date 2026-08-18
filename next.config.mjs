@@ -8,12 +8,13 @@ const isDev = process.env.NODE_ENV === "development";
 const contentSecurityPolicy = [
   "default-src 'self'",
   // Next.js injects inline hydration scripts; dev additionally needs eval for fast refresh.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // static.cloudflareinsights.com serves the Web Analytics beacon Cloudflare injects.
+  `script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https:",
   "font-src 'self' data:",
   // Wildcards keep Supabase reachable even if the build-time URL var is absent.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co ${supabaseOrigin} ${supabaseOrigin.replace("https://", "wss://")}`.trim(),
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com ${supabaseOrigin} ${supabaseOrigin.replace("https://", "wss://")}`.trim(),
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -50,6 +51,14 @@ const nextConfig = {
       { source: "/:path*", headers: securityHeaders },
       {
         source: "/admin/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
+        source: "/staff/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
+        source: "/client/:path*",
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       },
     ];

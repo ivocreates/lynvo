@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import { useSupabaseConfig } from "@/components/providers/supabase-config";
 
 const LINK_ERRORS: Record<string, string> = {
   invalid_link: "That link is not valid. Request a new password reset email.",
@@ -13,6 +14,7 @@ const LINK_ERRORS: Record<string, string> = {
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const config = useSupabaseConfig();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +30,7 @@ export default function LoginForm() {
     const email = String(formData.get("email"));
     const password = String(formData.get("password"));
 
-    const supabase = createClient();
+    const supabase = createBrowserSupabase(config.url, config.anonKey);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     setLoading(false);
@@ -38,6 +40,7 @@ export default function LoginForm() {
       return;
     }
 
+    // The destination layout redirects staff, interns, and clients onwards.
     router.push("/admin");
     router.refresh();
   }

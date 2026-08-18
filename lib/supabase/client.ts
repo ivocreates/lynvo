@@ -1,7 +1,10 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/env";
 
-// Swap to createBrowserClient<Database> once real generated types replace lib/supabase/types.ts.
-export function createClient() {
-  return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
+/**
+ * Browser client. The config is passed in rather than read from process.env so
+ * it cannot be lost when the build environment differs from the runtime one —
+ * see components/providers/supabase-config.tsx.
+ */
+export function createBrowserSupabase(url: string, anonKey: string) {
+  return createBrowserClient(url, anonKey);
 }
