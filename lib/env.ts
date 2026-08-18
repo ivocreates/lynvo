@@ -7,15 +7,31 @@
 const SETUP_HINT =
   "Set it in your local .env.local and, for Cloudflare, in both the Workers Build variables and the Worker runtime variables.";
 
+export function getSupabaseUrlValue(): string | undefined {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || undefined;
+}
+
 export function getSupabaseUrl(): string {
-  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const value = getSupabaseUrlValue();
   if (!value) throw new Error(`Missing NEXT_PUBLIC_SUPABASE_URL. ${SETUP_HINT}`);
   return value;
 }
 
+export function getSupabaseAnonKeyValue(): string | undefined {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    undefined
+  );
+}
+
 export function getSupabaseAnonKey(): string {
-  const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!value) throw new Error(`Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. ${SETUP_HINT}`);
+  const value = getSupabaseAnonKeyValue();
+  if (!value) {
+    throw new Error(
+      `Missing NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. ${SETUP_HINT}`
+    );
+  }
   return value;
 }
 

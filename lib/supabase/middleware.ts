@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/env";
+import { getSupabaseAnonKeyValue, getSupabaseUrlValue } from "@/lib/env";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -8,11 +8,26 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password", "/admin/update-password"];
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const isPublicAdminPath = PUBLIC_ADMIN_PATHS.includes(pathname);
+  const supabaseUrl = getSupabaseUrlValue();
+  const supabaseAnonKey = getSupabaseAnonKeyValue();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (pathname.startsWith("/admin") && !isPublicAdminPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/admin/login";
+      redirectUrl.search = "?setup=1";
+      return NextResponse.redirect(redirectUrl);
+    }
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
-    getSupabaseUrl(),
-    getSupabaseAnonKey(),
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -34,9 +49,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-  const isPublicAdminPath = PUBLIC_ADMIN_PATHS.includes(pathname);
 
   if (pathname.startsWith("/admin") && !isPublicAdminPath && !user) {
     const redirectUrl = request.nextUrl.clone();

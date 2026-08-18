@@ -17,6 +17,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   const linkError = LINK_ERRORS[searchParams.get("error") ?? ""] ?? null;
+  const setupRequired = searchParams.get("setup") === "1";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,6 +49,11 @@ export default function LoginForm() {
     >
       <p className="section-stamp mb-2">ADMIN ACCESS</p>
       <h1 className="font-display text-2xl font-semibold text-ink-900">Sign in</h1>
+      {setupRequired && (
+        <p className="mt-4 rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          Supabase is not configured for this Cloudflare deployment. Add the Supabase URL and publishable key to the Worker build and runtime variables.
+        </p>
+      )}
       <div className="mt-6 space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-ink-900">
