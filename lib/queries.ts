@@ -3,15 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Generic safe select: returns [] instead of throwing when Supabase
  * isn't configured yet, so the UI still renders during local setup.
+ * Failures are logged because an empty page is otherwise indistinguishable
+ * from a missing env var or a blocking RLS policy in production.
  */
 async function safeSelect<T>(table: string, build: (q: any) => any): Promise<T[]> {
   try {
     const supabase = createClient();
     const query = build(supabase.from(table));
     const { data, error } = await query;
-    if (error) return [];
+    if (error) {
+      console.error(`[queries] select from "${table}" failed:`, error.code, error.message);
+      return [];
+    }
     return (data ?? []) as T[];
-  } catch {
+  } catch (error) {
+    // Next.js signals a static-render bailout by throwing; it must propagate.
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") throw error;
+    console.error(`[queries] select from "${table}" threw:`, (error as Error).message);
     return [];
   }
 }
@@ -86,6 +94,27 @@ export type Stat = {
 export type SiteSetting = { key: string; value: { text?: string } | null };
 export type SocialLink = { id: string; platform: string; url: string };
 
+export type JobOpening = {
+  id: string;
+  slug: string;
+  title: string;
+  employment_type: string;
+  department: string | null;
+  location: string | null;
+  excerpt: string | null;
+  description: string | null;
+  responsibilities: string[] | null;
+  requirements: string[] | null;
+  is_open: boolean;
+};
+
+export type Faq = {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+};
+
 export const getServices = () =>
   safeSelect<Service>("services", (q) => q.select("*").eq("active", true).order("order", { ascending: true }));
 
@@ -109,3 +138,16 @@ export const getSiteSettings = () =>
 
 export const getSocialLinks = () =>
   safeSelect<SocialLink>("social_links", (q) => q.select("id, platform, url").eq("active", true).order("order", { ascending: true }));
+
+export const getJobOpenings = () =>
+  safeSelect<JobOpening>("job_openings", (q) => q.select("*").eq("is_open", true).order("order", { ascending: true }));
+
+export const getFaqs = (category = "contact") =>
+  safeSelect<Faq>("faqs", (q) =>
+    q.select("id, question, answer, category").eq("active", true).eq("category", category).order("order", { ascending: true })
+  );
+
+/** Flattens the site_settings key/value rows into a plain lookup object. */
+export function settingsMap(rows: SiteSetting[]): Record<string, string> {
+  return Object.fromEntries(rows.map((row) => [row.key, row.value?.text ?? ""]));
+}

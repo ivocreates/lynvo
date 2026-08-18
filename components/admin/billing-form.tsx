@@ -73,14 +73,18 @@ export default function BillingForm({
   items,
   presets,
   defaults,
+  action = saveDocument,
+  canSetStatus = true,
 }: {
   docType: DocType;
   document?: DocumentRecord;
   items?: LineItem[];
   presets: PresetItem[];
   defaults: { currency: string; terms: string };
+  action?: (state: BillingState, formData: FormData) => Promise<BillingState>;
+  canSetStatus?: boolean;
 }) {
-  const [state, formAction] = useFormState(saveDocument, initialState);
+  const [state, formAction] = useFormState(action, initialState);
 
   const [rows, setRows] = useState<Row[]>(() => {
     if (!items || items.length === 0) return [emptyRow()];
@@ -166,13 +170,22 @@ export default function BillingForm({
             <label htmlFor="status" className="block text-sm font-medium text-ink-900">
               Status
             </label>
-            <select id="status" name="status" defaultValue={document?.status ?? "draft"} className={inputClass}>
-              {DOC_STATUSES.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
+            {canSetStatus ? (
+              <select id="status" name="status" defaultValue={document?.status ?? "draft"} className={inputClass}>
+                {DOC_STATUSES.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id="status"
+                value="Draft — sent for review"
+                readOnly
+                className={`${inputClass} text-text-primary/60`}
+              />
+            )}
           </div>
           <div>
             <label htmlFor="issue_date" className="block text-sm font-medium text-ink-900">

@@ -17,15 +17,27 @@ import {
   ShieldCheck,
   ReceiptText,
   Package,
+  Briefcase,
+  HelpCircle,
+  ListChecks,
+  CalendarClock,
+  FileSignature,
+  Award,
 } from "lucide-react";
-import type { Role } from "@/lib/auth";
+import { ROLE_RANK, type Role } from "@/lib/roles";
 
 const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/tasks", label: "Tasks", icon: ListChecks, minRole: "junior_partner" },
+  { href: "/admin/meetings", label: "Meetings", icon: CalendarClock, minRole: "junior_partner" },
+  { href: "/admin/documents", label: "HR documents", icon: FileSignature, minRole: "junior_partner" },
+  { href: "/admin/certificates", label: "Certificates", icon: Award, minRole: "junior_partner" },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/services", label: "Services", icon: Wrench },
   { href: "/admin/blog", label: "Blog", icon: FileText },
   { href: "/admin/team", label: "Team", icon: Users },
+  { href: "/admin/careers", label: "Careers", icon: Briefcase },
+  { href: "/admin/faqs", label: "FAQs", icon: HelpCircle },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/stats", label: "Statistics", icon: BarChart3 },
   { href: "/admin/social", label: "Social links", icon: Link2 },
@@ -34,10 +46,9 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?
   { href: "/admin/billing-items", label: "Billing items", icon: Package },
   { href: "/admin/media", label: "Media", icon: ImageIcon },
   { href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" },
-  { href: "/admin/admins", label: "Admins", icon: ShieldCheck, minRole: "super_admin" },
+  { href: "/admin/admins", label: "People", icon: ShieldCheck, minRole: "junior_partner" },
+  { href: "/staff", label: "Team workspace", icon: Users },
 ];
-
-const ROLE_RANK: Record<Role, number> = { editor: 1, admin: 2, super_admin: 3 };
 
 export default function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();

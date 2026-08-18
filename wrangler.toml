@@ -3,6 +3,10 @@ main = ".open-next/worker.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Without this, every `wrangler deploy` deletes the runtime variables set in the
+# Cloudflare dashboard, which silently breaks all Supabase reads.
+keep_vars = true
+
 [assets]
 binding = "ASSETS"
 directory = ".open-next/assets"

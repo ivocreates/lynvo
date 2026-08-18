@@ -4,12 +4,28 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
+const ENQUIRY_TYPES = ["project", "quote", "careers", "general"] as const;
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((value) => (value ? value : undefined));
+
 const contactSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().toLowerCase().email().max(320),
   message: z.string().trim().min(10).max(4000),
+  company: optionalText(160),
+  phone: optionalText(40),
+  service: optionalText(160),
+  budget: optionalText(80),
+  timeline: optionalText(80),
+  enquiry_type: z.enum(ENQUIRY_TYPES).catch("project"),
   // Bots fill hidden fields; humans leave them empty.
-  company: z.string().max(0).optional(),
+  website: z.string().max(0).optional(),
 });
 
 export type ContactState = {
@@ -50,6 +66,12 @@ export async function submitContact(
     email: formData.get("email"),
     message: formData.get("message"),
     company: formData.get("company") ?? undefined,
+    phone: formData.get("phone") ?? undefined,
+    service: formData.get("service") ?? undefined,
+    budget: formData.get("budget") ?? undefined,
+    timeline: formData.get("timeline") ?? undefined,
+    enquiry_type: formData.get("enquiry_type") ?? "project",
+    website: formData.get("website") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -61,10 +83,17 @@ export async function submitContact(
     name: parsed.data.name,
     email: parsed.data.email,
     message: parsed.data.message,
+    company: parsed.data.company ?? null,
+    phone: parsed.data.phone ?? null,
+    service: parsed.data.service ?? null,
+    budget: parsed.data.budget ?? null,
+    timeline: parsed.data.timeline ?? null,
+    enquiry_type: parsed.data.enquiry_type,
     status: "new",
   });
 
   if (error) {
+    console.error("[contact] insert failed:", error.code, error.message);
     return {
       success: false,
       message: "We couldn't save your message right now. Please try again shortly.",
@@ -85,8 +114,19 @@ export async function submitContact(
           from: "LYNVO <notifications@lynvo.studio>",
           to: notificationTo,
           reply_to: parsed.data.email,
-          subject: `New contact form submission from ${parsed.data.name}`,
-          text: parsed.data.message,
+          subject: `New ${parsed.data.enquiry_type} enquiry from ${parsed.data.name}`,
+          text: [
+            `Type: ${parsed.data.enquiry_type}`,
+            parsed.data.company && `Company: ${parsed.data.company}`,
+            parsed.data.phone && `Phone: ${parsed.data.phone}`,
+            parsed.data.service && `Service: ${parsed.data.service}`,
+            parsed.data.budget && `Budget: ${parsed.data.budget}`,
+            parsed.data.timeline && `Timeline: ${parsed.data.timeline}`,
+            "",
+            parsed.data.message,
+          ]
+            .filter(Boolean)
+            .join("\n"),
         }),
       });
     } catch {

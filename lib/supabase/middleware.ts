@@ -10,11 +10,12 @@ const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password", "/admin/upd
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublicAdminPath = PUBLIC_ADMIN_PATHS.includes(pathname);
+  const isGuarded = pathname.startsWith("/admin") || pathname.startsWith("/staff");
   const supabaseUrl = getSupabaseUrlValue();
   const supabaseAnonKey = getSupabaseAnonKeyValue();
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (pathname.startsWith("/admin") && !isPublicAdminPath) {
+    if (isGuarded && !isPublicAdminPath) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/admin/login";
       redirectUrl.search = "?setup=1";
@@ -50,7 +51,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (pathname.startsWith("/admin") && !isPublicAdminPath && !user) {
+  if (isGuarded && !isPublicAdminPath && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/admin/login";
     redirectUrl.search = "";

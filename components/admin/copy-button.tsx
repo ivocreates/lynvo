@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function CopyButton({ value }: { value: string }) {
+export default function CopyButton({ value, label = "Copy URL" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -15,7 +15,7 @@ export default function CopyButton({ value }: { value: string }) {
       }}
       className="text-xs text-brand-700 underline"
     >
-      {copied ? "Copied" : "Copy URL"}
+      {copied ? "Copied" : label}
     </button>
   );
 }

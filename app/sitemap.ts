@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getSiteUrl } from "@/lib/env";
 
-const routes = ["", "/about", "/services", "/archive", "/blog", "/team", "/reviews", "/contact", "/llm.txt"];
+const routes = ["", "/about", "/services", "/archive", "/blog", "/team", "/careers", "/reviews", "/contact", "/llm.txt"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getSiteUrl("https://lynvo.tech");

@@ -53,6 +53,18 @@ export const BILLING_SETTING_GROUPS: {
     description: "Legal wording printed at the bottom of every page.",
     keys: [{ key: "billing_footer_legal", label: "Footer legal text", type: "textarea" }],
   },
+  {
+    title: "HR documents",
+    description: "Used by contracts, offer letters, and certificates.",
+    keys: [
+      { key: "doc_reference_prefix", label: "Reference prefix", type: "text", help: "e.g. LYNVO/HR" },
+      { key: "doc_signatory_name", label: "Signatory name", type: "text" },
+      { key: "doc_signatory_title", label: "Signatory title", type: "text" },
+      { key: "doc_footer_note", label: "Document footer note", type: "textarea" },
+      { key: "certificate_intro", label: "Certificate intro line", type: "text" },
+      { key: "certificate_note", label: "Certificate verification note", type: "textarea" },
+    ],
+  },
 ];
 
 export const BILLING_SETTING_KEYS = BILLING_SETTING_GROUPS.flatMap((group) =>

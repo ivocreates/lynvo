@@ -6,6 +6,7 @@ import { getSiteSettings, getSocialLinks } from "@/lib/queries";
 const studioLinks = [
   ["About", "/about"],
   ["Team", "/team"],
+  ["Careers", "/careers"],
   ["Blog", "/blog"],
   ["Contact", "/contact"],
 ] as const;

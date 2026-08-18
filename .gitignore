@@ -8,3 +8,4 @@ out
 .wrangler
 .open-next
 *.tsbuildinfo
+supabase/.temp

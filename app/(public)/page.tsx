@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import SectionStamp from "@/components/ui/section-stamp";
 import ArchiveCard from "@/components/ui/archive-card";
+import ProjectCta from "@/components/ui/project-cta";
 import {
   getProjects,
   getReviews,
@@ -10,6 +11,7 @@ import {
   getSocialLinks,
   getStats,
   getTeamMembers,
+  settingsMap,
 } from "@/lib/queries";
 
 const principles = [
@@ -29,7 +31,7 @@ const stackGroups = [
 ];
 
 function settingsObject(rows: { key: string; value: { text?: string } | null }[]) {
-  return Object.fromEntries(rows.map((row) => [row.key, row.value?.text ?? ""])) as Record<string, string>;
+  return settingsMap(rows);
 }
 
 export default async function HomePage() {
@@ -252,26 +254,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="container-page py-16">
-        <SectionStamp label="LET'S BUILD" />
-        <div className="grid gap-8 rounded-card border border-border bg-ink-900 p-8 text-text-inverse lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div>
-            <h2 className="font-display text-3xl font-semibold">Have a project in mind?</h2>
-            <p className="mt-4 max-w-2xl text-text-inverse/75">
-              Start a conversation. We respond within 24 hours with a thoughtful, personalized response - not a template.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 lg:items-end">
-            <Link href="/contact" className="rounded-card bg-brand-700 px-5 py-3 text-sm font-medium text-text-inverse hover:bg-brand-500">
-              Start a project
-            </Link>
-            <Link href="/archive" className="text-sm text-text-inverse/80 underline-offset-4 hover:underline">
-              View our work
-            </Link>
-            {settings.contact_email && <p className="text-sm text-text-inverse/70">{settings.contact_email}</p>}
-          </div>
-        </div>
-      </section>
+      <ProjectCta contactEmail={settings.contact_email} />
     </div>
   );
 }
