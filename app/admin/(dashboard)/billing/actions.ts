@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
+import { getSupabaseUrl } from "@/lib/env";
 import {
   BILLING_SETTING_KEYS,
   calculateTotals,
@@ -172,6 +173,46 @@ export async function saveBillingSettings(
   revalidatePath("/admin/billing");
 
   return { ok: true, message: "Billing settings saved." };
+}
+
+export type ImageUploadState = { ok: boolean; message: string; url?: string };
+
+const IMAGE_TYPES = ["image/png", "image/webp", "image/svg+xml"];
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/** Uploads a signature/stamp asset and returns its public URL for a settings field. */
+export async function uploadSettingsImage(formData: FormData): Promise<ImageUploadState> {
+  await requireAdmin();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Choose an image file." };
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { ok: false, message: "File is larger than 2 MB." };
+  }
+  if (!IMAGE_TYPES.includes(file.type)) {
+    return { ok: false, message: "Use a PNG, WebP or SVG with a transparent background." };
+  }
+
+  const extension = file.type === "image/svg+xml" ? "svg" : file.type.split("/")[1];
+  const path = `signatures/${crypto.randomUUID()}.${extension}`;
+
+  const supabase = createClient();
+  const { error: uploadError } = await supabase.storage
+    .from("public-media")
+    .upload(path, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) return { ok: false, message: "Upload failed. Check your permissions and try again." };
+
+  await supabase.from("media_assets").insert({ bucket: "public-media", path, mime_type: file.type });
+  await recordAudit("upload", "media_assets", null, { path, scope: "billing_settings" });
+
+  return {
+    ok: true,
+    message: "Uploaded.",
+    url: `${getSupabaseUrl()}/storage/v1/object/public/public-media/${path}`,
+  };
 }
 
 function friendlyError(message: string) {

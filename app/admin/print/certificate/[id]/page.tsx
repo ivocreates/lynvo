@@ -118,12 +118,22 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
 
         <footer className="relative mt-10 flex items-end justify-between gap-8">
           <div className="text-[12px]">
-            <div className="h-10" />
+            {settings.billing_signature_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={settings.billing_signature_url} alt="Signature" className="h-12 w-auto object-contain" />
+            ) : (
+              <div className="h-10" />
+            )}
             <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
               {settings.doc_signatory_name || "Ivo Pereira"}
             </p>
             <p className="text-ink-900/70">{settings.doc_signatory_title || "Founder & CEO"}</p>
           </div>
+
+          {settings.billing_stamp_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.billing_stamp_url} alt="Company stamp" className="h-20 w-auto object-contain" />
+          )}
 
           <div className="flex items-center gap-4 text-left">
             <QrCode value={url} size={104} />

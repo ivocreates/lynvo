@@ -4,6 +4,7 @@ import { useFormState } from "react-dom";
 import { saveBillingSettings, type BillingSettingsState } from "@/app/admin/(dashboard)/billing/actions";
 import { BILLING_SETTING_GROUPS } from "@/lib/admin/billing";
 import SubmitButton from "./submit-button";
+import ImageSettingField from "./image-setting-field";
 
 const initialState: BillingSettingsState = { ok: false, message: "" };
 
@@ -34,6 +35,10 @@ export default function BillingSettingsForm({ values }: { values: Record<string,
                     defaultValue={values[setting.key] ?? ""}
                     className={inputClass}
                   />
+                ) : setting.type === "image" ? (
+                  <div className="mt-1">
+                    <ImageSettingField id={setting.key} name={setting.key} defaultValue={values[setting.key] ?? ""} />
+                  </div>
                 ) : (
                   <input
                     id={setting.key}

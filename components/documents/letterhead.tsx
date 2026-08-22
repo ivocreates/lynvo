@@ -70,6 +70,9 @@ export default function DocumentLetterhead({
           <p className="font-display text-xl font-semibold tracking-wide">
             {DOC_TYPE_HEADINGS[doc.doc_type]}
           </p>
+          {settings.doc_header_note && (
+            <p className="mt-1 text-[12px] text-ink-900/70">{settings.doc_header_note}</p>
+          )}
           {doc.reference && (
             <p className="mt-2 text-[12px]">
               <span className="text-ink-900/60">Ref:</span> {doc.reference}
@@ -141,7 +144,12 @@ export default function DocumentLetterhead({
 
       <section className="mt-12 flex flex-wrap justify-between gap-10 text-[12px]">
         <div>
-          <div className="h-12" />
+          {settings.billing_signature_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.billing_signature_url} alt="Signature" className="h-14 w-auto object-contain" />
+          ) : (
+            <div className="h-12" />
+          )}
           <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
             {settings.doc_signatory_name || "Ivo Pereira"}
           </p>
@@ -160,6 +168,10 @@ export default function DocumentLetterhead({
                 : "Recipient signature"}
             </p>
           </div>
+        )}
+        {settings.billing_stamp_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={settings.billing_stamp_url} alt="Company stamp" className="h-20 w-auto object-contain" />
         )}
       </section>
 

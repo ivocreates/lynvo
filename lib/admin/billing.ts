@@ -81,7 +81,7 @@ export const DOC_STATUSES = [
 export const BILLING_SETTING_GROUPS: {
   title: string;
   description: string;
-  keys: { key: string; label: string; type: "text" | "textarea"; help?: string }[];
+  keys: { key: string; label: string; type: "text" | "textarea" | "image"; help?: string }[];
 }[] = [
   {
     title: "Letterhead",
@@ -107,12 +107,22 @@ export const BILLING_SETTING_GROUPS: {
     ],
   },
   {
+    title: "Signature & stamp",
+    description: "Printed on quotes, invoices, HR documents and certificates.",
+    keys: [
+      { key: "billing_signature_url", label: "Authorized signatory signature", type: "image", help: "Transparent PNG of the signing partner's signature." },
+      { key: "billing_stamp_url", label: "Company stamp / seal", type: "image", help: "Transparent PNG of the LLP stamp." },
+    ],
+  },
+  {
     title: "Document defaults",
     description: "Applied to new documents and used to build numbers.",
     keys: [
       { key: "billing_currency", label: "Currency code", type: "text", help: "ISO code, e.g. INR or USD." },
       { key: "billing_quote_prefix", label: "Quote number prefix", type: "text" },
       { key: "billing_invoice_prefix", label: "Invoice number prefix", type: "text" },
+      { key: "billing_quote_header_note", label: "Quote header note", type: "text", help: "Short line printed under the QUOTATION heading." },
+      { key: "billing_invoice_header_note", label: "Invoice header note", type: "text", help: "Short line printed under the INVOICE heading." },
       { key: "billing_quote_terms", label: "Default quote terms", type: "textarea" },
       { key: "billing_invoice_terms", label: "Default invoice terms", type: "textarea" },
       { key: "billing_bank_details", label: "Bank / payment details", type: "textarea" },
@@ -133,6 +143,7 @@ export const BILLING_SETTING_GROUPS: {
       { key: "doc_reference_prefix", label: "Reference prefix", type: "text", help: "e.g. LYNVO/HR" },
       { key: "doc_signatory_name", label: "Signatory name", type: "text" },
       { key: "doc_signatory_title", label: "Signatory title", type: "text" },
+      { key: "doc_header_note", label: "HR document header note", type: "text", help: "Short line printed under the document title." },
       { key: "doc_footer_note", label: "Document footer note", type: "textarea" },
       { key: "certificate_intro", label: "Certificate intro line", type: "text" },
       { key: "certificate_note", label: "Certificate verification note", type: "textarea" },

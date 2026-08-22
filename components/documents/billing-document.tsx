@@ -61,6 +61,8 @@ export default function BillingDocument({
     settings.billing_pan && `PAN: ${settings.billing_pan}`,
   ].filter(Boolean);
 
+  const headerNote = isInvoice ? settings.billing_invoice_header_note : settings.billing_quote_header_note;
+
   return (
     <article className="mx-auto max-w-[210mm] bg-white p-10 text-[13px] leading-relaxed text-ink-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
       <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-ink-900 pb-5">
@@ -101,6 +103,7 @@ export default function BillingDocument({
 
         <div className="text-right">
           <p className="font-display text-lg font-semibold tracking-wide">{title}</p>
+          {headerNote && <p className="mt-1 text-[12px] text-ink-900/70">{headerNote}</p>}
           <p className="mt-2 text-[12px]">
             <span className="text-ink-900/60">Number:</span> {doc.number}
           </p>
@@ -259,6 +262,26 @@ export default function BillingDocument({
             </p>
             <p className="mt-1 whitespace-pre-line text-ink-900/80">{settings.billing_third_party_note}</p>
           </div>
+        )}
+      </section>
+
+      <section className="mt-10 flex flex-wrap items-end justify-between gap-8 text-[12px]">
+        <div>
+          {settings.billing_signature_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.billing_signature_url} alt="Signature" className="h-14 w-auto object-contain" />
+          ) : (
+            <div className="h-12" />
+          )}
+          <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
+            {settings.doc_signatory_name || "Authorized signatory"}
+          </p>
+          <p className="text-ink-900/70">{settings.doc_signatory_title}</p>
+          <p className="text-ink-900/70">{settings.billing_legal_name}</p>
+        </div>
+        {settings.billing_stamp_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={settings.billing_stamp_url} alt="Company stamp" className="h-20 w-auto object-contain" />
         )}
       </section>
 
