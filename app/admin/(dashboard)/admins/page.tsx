@@ -3,7 +3,8 @@ import { requireManager, hasRole } from "@/lib/auth";
 import { ROLES, STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
 import PageHeader from "@/components/admin/page-header";
 import InviteForm from "@/components/admin/invite-form";
-import { updateStaffAccess, updateStaffDetails } from "./actions";
+import ConfirmSubmit from "@/components/admin/confirm-submit";
+import { deleteStaff, updateStaffAccess, updateStaffDetails } from "./actions";
 
 const FIELD_CLASS =
   "mt-1 w-full rounded-card border border-border bg-canvas-warm px-2 py-1.5 text-sm focus:border-brand-700 focus:outline-none";
@@ -230,6 +231,17 @@ export default async function PeoplePage() {
                       >
                         Update access
                       </button>
+                    </form>
+                  )}
+
+                  {canManageAccess && !isSelf && (
+                    <form action={deleteStaff} className="mt-4 border-t border-border pt-4">
+                      <input type="hidden" name="id" value={person.id} />
+                      <ConfirmSubmit
+                        message={`Remove ${person.display_name ?? person.email}? Their sign-in account and profile will be deleted.`}
+                        label="Remove person"
+                        className="rounded-card border border-error/40 px-4 py-2 text-sm text-error hover:bg-error/5"
+                      />
                     </form>
                   )}
                 </div>

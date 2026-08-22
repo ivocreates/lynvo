@@ -9,6 +9,7 @@ import PrintButton from "@/components/admin/print-button";
 import QrCode from "@/components/documents/qr-code";
 import {
   CERTIFICATE_HEADINGS,
+  renderCertificateBody,
   formatCertificateDate,
   formatPeriod,
   verifyUrl,
@@ -31,6 +32,29 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
   const url = verifyUrl(getSiteUrl("https://lynvo.tech"), certificate.code);
   const isManager = hasRole(profile, "junior_partner");
   const period = formatPeriod(certificate.start_date, certificate.end_date);
+  const brand = settings.billing_brand_name || "LYNVO";
+  const body = renderCertificateBody({
+    template: settings.certificate_body_template,
+    certificate,
+    brand,
+    period,
+  });
+  const layout = settings.certificate_layout === "compact" ? "compact" : "classic";
+  const stampUrl = settings.certificate_stamp_url || settings.billing_stamp_url;
+  const signatures = [
+    {
+      url: settings.certificate_signature_url || settings.billing_signature_url,
+      name: settings.certificate_partner_name || settings.doc_signatory_name || "Ivo Pereira",
+      title: settings.certificate_partner_title || settings.doc_signatory_title || "Founder & CEO",
+    },
+    settings.certificate_second_signature_url || settings.certificate_second_partner_name
+      ? {
+          url: settings.certificate_second_signature_url,
+          name: settings.certificate_second_partner_name || "Partner",
+          title: settings.certificate_second_partner_title || "Partner",
+        }
+      : null,
+  ].filter(Boolean) as { url: string; name: string; title: string }[];
 
   return (
     <div className="min-h-screen bg-canvas-warm py-8 print:bg-white print:py-0">
@@ -78,29 +102,25 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
           </div>
         </header>
 
-        <div className="relative mt-10 flex-1 text-center">
+        {settings.certificate_content_stamp && (
+          <p className="pointer-events-none absolute inset-x-0 top-[42%] text-center font-display text-7xl font-semibold uppercase tracking-[0.18em] text-brand-700/5">
+            {settings.certificate_content_stamp}
+          </p>
+        )}
+
+        <div className={`relative flex-1 text-center ${layout === "compact" ? "mt-6" : "mt-10"}`}>
           <p className="font-display text-3xl font-semibold tracking-[0.12em] text-brand-700">
             {CERTIFICATE_HEADINGS[certificate.cert_type]}
           </p>
 
-          <p className="mt-10 text-[13px] uppercase tracking-[0.3em] text-ink-900/60">
+          <p className={`${layout === "compact" ? "mt-6" : "mt-10"} text-[13px] uppercase tracking-[0.3em] text-ink-900/60`}>
             {settings.certificate_intro || "This is to certify that"}
           </p>
 
           <p className="mt-4 font-display text-4xl font-semibold">{certificate.recipient_name}</p>
 
           <p className="mx-auto mt-6 max-w-3xl text-[14px] leading-7 text-ink-900/85">
-            has successfully completed{" "}
-            {certificate.role_title ? (
-              <>
-                an engagement as <span className="font-semibold">{certificate.role_title}</span>
-              </>
-            ) : (
-              "an engagement"
-            )}
-            {certificate.department ? ` in the ${certificate.department} team` : ""} at{" "}
-            {settings.billing_brand_name || "LYNVO"}
-            {period ? ` ${period}` : ""}.
+            {body}
           </p>
 
           {certificate.summary && (
@@ -116,26 +136,28 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
           )}
         </div>
 
-        <footer className="relative mt-10 flex items-end justify-between gap-8">
-          <div className="text-[12px]">
-            {settings.billing_signature_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.billing_signature_url} alt="Signature" className="h-12 w-auto object-contain" />
-            ) : (
-              <div className="h-10" />
-            )}
-            <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
-              {settings.doc_signatory_name || "Ivo Pereira"}
-            </p>
-            <p className="text-ink-900/70">{settings.doc_signatory_title || "Founder & CEO"}</p>
+        <footer className="relative mt-10 grid grid-cols-[1fr_auto_1fr] items-end gap-6">
+          <div className="flex flex-wrap gap-5 text-[12px]">
+            {signatures.map((signature) => (
+              <div key={`${signature.name}-${signature.title}`}>
+                {signature.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={signature.url} alt="Signature" className="h-12 w-auto object-contain" />
+                ) : (
+                  <div className="h-10" />
+                )}
+                <p className="w-48 border-t border-ink-900/40 pt-1 font-semibold">{signature.name}</p>
+                <p className="text-ink-900/70">{signature.title}</p>
+              </div>
+            ))}
           </div>
 
-          {settings.billing_stamp_url && (
+          {stampUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={settings.billing_stamp_url} alt="Company stamp" className="h-20 w-auto object-contain" />
+            <img src={stampUrl} alt="Company stamp" className="h-20 w-auto object-contain" />
           )}
 
-          <div className="flex items-center gap-4 text-left">
+          <div className="flex items-center justify-end gap-4 text-left">
             <QrCode value={url} size={104} />
             <div className="max-w-[220px] text-[11px] leading-5 text-ink-900/70">
               <p className="font-semibold text-ink-900">Verify this certificate</p>

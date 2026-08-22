@@ -8,11 +8,12 @@ import CopyButton from "@/components/admin/copy-button";
 import CertificateForm, { type CertificatePerson } from "@/components/admin/certificate-form";
 import {
   CERTIFICATE_TYPE_LABELS,
+  certificatePrintUrl,
   formatPeriod,
   verifyUrl,
   type Certificate,
 } from "@/lib/certificates";
-import { createCertificate, issueCertificate, revokeCertificate, deleteCertificate } from "./actions";
+import { createCertificate, issueCertificate, revokeCertificate, deleteCertificate, sendCertificateEmail } from "./actions";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-border/50 text-text-primary/70",
@@ -20,7 +21,7 @@ const STATUS_STYLES: Record<string, string> = {
   revoked: "bg-error/10 text-error",
 };
 
-export default async function CertificatesPage() {
+export default async function CertificatesPage({ searchParams }: { searchParams?: { sent?: string } }) {
   await requireManager();
 
   const supabase = createClient();
@@ -44,6 +45,12 @@ export default async function CertificatesPage() {
   }));
 
   const baseUrl = getSiteUrl("https://lynvo.tech");
+  const sentMessage =
+    searchParams?.sent === "1"
+      ? "Certificate email sent."
+      : searchParams?.sent === "0"
+        ? "Certificate email could not be sent. Check the recipient email and Resend configuration."
+        : "";
 
   return (
     <div>
@@ -54,6 +61,19 @@ export default async function CertificatesPage() {
       />
 
       <CertificateForm people={people} action={createCertificate} />
+
+      {sentMessage && (
+        <p
+          role="status"
+          className={`mb-4 rounded-card border px-4 py-3 text-sm ${
+            searchParams?.sent === "1"
+              ? "border-success/30 bg-success/5 text-success"
+              : "border-error/30 bg-error/5 text-error"
+          }`}
+        >
+          {sentMessage}
+        </p>
+      )}
 
       {certificates.length === 0 ? (
         <div className="rounded-card border border-dashed border-border p-10 text-center text-sm text-text-primary/70">
@@ -109,6 +129,32 @@ export default async function CertificatesPage() {
                 ) : (
                   <>
                     <CopyButton value={verifyUrl(baseUrl, certificate.code)} label="Copy verify link" />
+                    {certificate.recipient_email && (
+                      <>
+                        <form action={sendCertificateEmail}>
+                          <input type="hidden" name="id" value={certificate.id} />
+                          <button
+                            type="submit"
+                            className="rounded-card border border-border px-3 py-1.5 text-sm hover:bg-canvas-warm"
+                          >
+                            Email certificate
+                          </button>
+                        </form>
+                        <a
+                          href={`mailto:${certificate.recipient_email}?subject=${encodeURIComponent(
+                            `Your LYNVO certificate ${certificate.code}`
+                          )}&body=${encodeURIComponent(
+                            `Your certificate is ready.\n\nDownload or print: ${certificatePrintUrl(
+                              baseUrl,
+                              certificate.id
+                            )}\nVerify: ${verifyUrl(baseUrl, certificate.code)}`
+                          )}`}
+                          className="rounded-card border border-border px-3 py-1.5 text-sm hover:bg-canvas-warm"
+                        >
+                          Open mail app
+                        </a>
+                      </>
+                    )}
                     <form action={revokeCertificate} className="flex items-end gap-2">
                       <input type="hidden" name="id" value={certificate.id} />
                       <input

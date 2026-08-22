@@ -61,6 +61,38 @@ export async function updateStaffAccess(formData: FormData) {
   revalidatePath("/admin/admins");
 }
 
+export async function deleteStaff(formData: FormData) {
+  const actor = await requireSuperAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === actor.id) return;
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, email, role, is_active")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!target) return;
+
+  if (target.role === "super_admin" && target.is_active) {
+    const { count } = await admin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "super_admin")
+      .eq("is_active", true);
+
+    if ((count ?? 0) <= 1) return;
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(id);
+
+  if (!error) await recordAudit("delete", "profiles", id, { email: target.email, role: target.role });
+
+  revalidatePath("/admin/admins");
+}
+
 export async function updateStaffDetails(formData: FormData) {
   await requireManager();
 

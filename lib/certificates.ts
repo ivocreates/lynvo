@@ -60,6 +60,34 @@ export function verifyUrl(baseUrl: string, code: string) {
   return `${baseUrl.replace(/\/+$/, "")}/verify/${encodeURIComponent(code)}`;
 }
 
+export function certificatePrintUrl(baseUrl: string, id: string) {
+  return `${baseUrl.replace(/\/+$/, "")}/admin/print/certificate/${encodeURIComponent(id)}`;
+}
+
+export function renderCertificateBody({
+  template,
+  certificate,
+  brand,
+  period,
+}: {
+  template: string | null | undefined;
+  certificate: Certificate;
+  brand: string;
+  period: string;
+}) {
+  const fallback =
+    "has successfully completed an engagement as {{role_title}} at {{brand}}{{period}}.";
+  const values: Record<string, string> = {
+    recipient_name: certificate.recipient_name,
+    role_title: certificate.role_title || "a team member",
+    department: certificate.department || "",
+    brand,
+    period: period ? ` ${period}` : "",
+  };
+
+  return (template?.trim() || fallback).replace(/\{\{\s*(recipient_name|role_title|department|brand|period)\s*\}\}/g, (_, key: string) => values[key] ?? "");
+}
+
 export function formatCertificateDate(value: string | null) {
   if (!value) return "";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {

@@ -1,10 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, recordAudit } from "@/lib/auth";
-import { CERTIFICATE_TYPES, type CertificateType } from "@/lib/certificates";
+import { getSiteUrl } from "@/lib/env";
+import {
+  CERTIFICATE_TYPES,
+  certificatePrintUrl,
+  verifyUrl,
+  type Certificate,
+  type CertificateType,
+} from "@/lib/certificates";
 
 const optional = (max: number) =>
   z
@@ -117,4 +125,52 @@ export async function deleteCertificate(formData: FormData) {
   await recordAudit("delete", "certificates", id);
 
   revalidatePath("/admin/certificates");
+}
+
+export async function sendCertificateEmail(formData: FormData) {
+  await requireManager();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = createClient();
+  const { data } = await supabase.from("certificates").select("*").eq("id", id).maybeSingle();
+  const certificate = data as Certificate | null;
+
+  if (!certificate?.recipient_email || certificate.status !== "issued" || !process.env.RESEND_API_KEY) {
+    redirect("/admin/certificates?sent=0");
+  }
+
+  const baseUrl = getSiteUrl("https://lynvo.tech");
+  const printUrl = certificatePrintUrl(baseUrl, certificate.id);
+  const publicVerifyUrl = verifyUrl(baseUrl, certificate.code);
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "LYNVO <notifications@lynvo.studio>",
+      to: certificate.recipient_email,
+      subject: `Your LYNVO certificate ${certificate.code}`,
+      text: [
+        `Hi ${certificate.recipient_name},`,
+        "",
+        "Your LYNVO certificate is ready.",
+        "",
+        `Download or print it here: ${printUrl}`,
+        `Public verification link: ${publicVerifyUrl}`,
+        "",
+        "LYNVO CREATIVE SOLUTIONS LLP",
+      ].join("\n"),
+    }),
+  });
+
+  if (response.ok) {
+    await recordAudit("email", "certificates", certificate.id, { to: certificate.recipient_email });
+  }
+
+  redirect(`/admin/certificates?sent=${response.ok ? "1" : "0"}`);
 }
