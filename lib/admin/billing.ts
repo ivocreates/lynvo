@@ -78,11 +78,13 @@ export const DOC_STATUSES = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-export const BILLING_SETTING_GROUPS: {
+export type SettingGroup = {
   title: string;
   description: string;
   keys: { key: string; label: string; type: "text" | "textarea" | "image"; help?: string }[];
-}[] = [
+};
+
+export const BILLING_SETTING_GROUPS: SettingGroup[] = [
   {
     title: "Letterhead",
     description: "Shown in the header of every quote and invoice.",
@@ -108,10 +110,10 @@ export const BILLING_SETTING_GROUPS: {
   },
   {
     title: "Signature & stamp",
-    description: "Printed on quotes, invoices, HR documents and certificates.",
+    description: "Printed on quotes and invoices.",
     keys: [
-      { key: "billing_signature_url", label: "Authorized signatory signature", type: "image", help: "Transparent PNG of the signing partner's signature." },
-      { key: "billing_stamp_url", label: "Company stamp / seal", type: "image", help: "Transparent PNG of the LLP stamp." },
+      { key: "billing_signature_url", label: "Billing signature", type: "image", help: "Transparent PNG of the billing signatory signature." },
+      { key: "billing_stamp_url", label: "Billing stamp / seal", type: "image", help: "Transparent PNG of the LLP stamp." },
     ],
   },
   {
@@ -136,17 +138,28 @@ export const BILLING_SETTING_GROUPS: {
     description: "Legal wording printed at the bottom of every page.",
     keys: [{ key: "billing_footer_legal", label: "Footer legal text", type: "textarea" }],
   },
+];
+
+export const HR_DOCUMENT_SETTING_GROUPS: SettingGroup[] = [
   {
     title: "HR documents",
-    description: "Used by contracts and offer letters.",
+    description: "Formatting, footer text, stamp, and designated partners for contracts, offer letters, NDAs, and policies.",
     keys: [
       { key: "doc_reference_prefix", label: "Reference prefix", type: "text", help: "e.g. LYNVO/HR" },
-      { key: "doc_signatory_name", label: "Signatory name", type: "text" },
-      { key: "doc_signatory_title", label: "Signatory title", type: "text" },
-      { key: "doc_header_note", label: "HR document header note", type: "text", help: "Short line printed under the document title." },
+      { key: "doc_header_note", label: "Header note", type: "text", help: "Short line printed under the document title." },
+      { key: "doc_signature_url", label: "First designated partner signature", type: "image", help: "Founder signature. Falls back to the billing signature if blank." },
+      { key: "doc_signatory_name", label: "First designated partner name", type: "text" },
+      { key: "doc_signatory_title", label: "First designated partner title", type: "text" },
+      { key: "doc_second_signature_url", label: "Second designated partner signature", type: "image", help: "Co-founder signature." },
+      { key: "doc_second_signatory_name", label: "Second designated partner name", type: "text" },
+      { key: "doc_second_signatory_title", label: "Second designated partner title", type: "text" },
+      { key: "doc_stamp_url", label: "HR document stamp / seal", type: "image", help: "Overrides the billing stamp on HR documents." },
       { key: "doc_footer_note", label: "Document footer note", type: "textarea" },
     ],
   },
+];
+
+export const CERTIFICATE_SETTING_GROUPS: SettingGroup[] = [
   {
     title: "Certificates",
     description: "Controls certificate wording, layout, seals, and partner signatures.",
@@ -156,12 +169,12 @@ export const BILLING_SETTING_GROUPS: {
       { key: "certificate_body_template", label: "Certificate body", type: "textarea", help: "Supports {{recipient_name}}, {{role_title}}, {{department}}, {{brand}}, and {{period}}." },
       { key: "certificate_content_stamp", label: "Content stamp text", type: "text", help: "Large faint text behind the certificate body." },
       { key: "certificate_stamp_url", label: "Certificate stamp / seal", type: "image", help: "Overrides the shared company stamp on certificates." },
-      { key: "certificate_signature_url", label: "Primary partner signature", type: "image", help: "Overrides the shared authorized signatory signature on certificates." },
-      { key: "certificate_partner_name", label: "Primary partner name", type: "text" },
-      { key: "certificate_partner_title", label: "Primary partner title", type: "text" },
-      { key: "certificate_second_signature_url", label: "Second partner signature", type: "image" },
-      { key: "certificate_second_partner_name", label: "Second partner name", type: "text" },
-      { key: "certificate_second_partner_title", label: "Second partner title", type: "text" },
+      { key: "certificate_signature_url", label: "First designated partner signature", type: "image", help: "Founder signature. Falls back to the billing signature if blank." },
+      { key: "certificate_partner_name", label: "First designated partner name", type: "text" },
+      { key: "certificate_partner_title", label: "First designated partner title", type: "text" },
+      { key: "certificate_second_signature_url", label: "Second designated partner signature", type: "image", help: "Co-founder signature." },
+      { key: "certificate_second_partner_name", label: "Second designated partner name", type: "text" },
+      { key: "certificate_second_partner_title", label: "Second designated partner title", type: "text" },
       { key: "certificate_note", label: "Certificate verification note", type: "textarea" },
     ],
   },
@@ -170,6 +183,20 @@ export const BILLING_SETTING_GROUPS: {
 export const BILLING_SETTING_KEYS = BILLING_SETTING_GROUPS.flatMap((group) =>
   group.keys.map((entry) => entry.key)
 );
+
+export const HR_DOCUMENT_SETTING_KEYS = HR_DOCUMENT_SETTING_GROUPS.flatMap((group) =>
+  group.keys.map((entry) => entry.key)
+);
+
+export const CERTIFICATE_SETTING_KEYS = CERTIFICATE_SETTING_GROUPS.flatMap((group) =>
+  group.keys.map((entry) => entry.key)
+);
+
+export const PRINT_SETTING_KEYS = [
+  ...BILLING_SETTING_KEYS,
+  ...HR_DOCUMENT_SETTING_KEYS,
+  ...CERTIFICATE_SETTING_KEYS,
+];
 
 export type BillingSettings = Record<string, string>;
 

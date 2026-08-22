@@ -45,13 +45,13 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
     {
       url: settings.certificate_signature_url || settings.billing_signature_url,
       name: settings.certificate_partner_name || settings.doc_signatory_name || "Ivo Pereira",
-      title: settings.certificate_partner_title || settings.doc_signatory_title || "Founder & CEO",
+      title: settings.certificate_partner_title || settings.doc_signatory_title || "Founder & Designated Partner",
     },
-    settings.certificate_second_signature_url || settings.certificate_second_partner_name
+    settings.certificate_second_signature_url || settings.certificate_second_partner_name || settings.certificate_second_partner_title
       ? {
           url: settings.certificate_second_signature_url,
-          name: settings.certificate_second_partner_name || "Partner",
-          title: settings.certificate_second_partner_title || "Partner",
+          name: settings.certificate_second_partner_name || "Co-Founder",
+          title: settings.certificate_second_partner_title || "Co-Founder & Designated Partner",
         }
       : null,
   ].filter(Boolean) as { url: string; name: string; title: string }[];

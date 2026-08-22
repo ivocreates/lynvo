@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, recordAudit } from "@/lib/auth";
+import { HR_DOCUMENT_SETTING_KEYS } from "@/lib/admin/billing";
 import { DOC_AUDIENCES, DOC_STATUSES, DOC_TYPES, type DocAudience, type DocStatus, type DocType } from "@/lib/documents";
+
+export type DocumentSettingsState = { ok: boolean; message: string };
 
 const optional = (max: number) =>
   z
@@ -116,4 +119,29 @@ export async function deleteDocument(formData: FormData) {
 
   revalidatePath("/admin/documents");
   redirect("/admin/documents");
+}
+
+export async function saveDocumentSettings(
+  _prev: DocumentSettingsState,
+  formData: FormData
+): Promise<DocumentSettingsState> {
+  await requireManager();
+
+  const supabase = createClient();
+  const rows = HR_DOCUMENT_SETTING_KEYS.map((key) => ({
+    key,
+    value: { text: String(formData.get(key) ?? "").trim() },
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+
+  if (error) return { ok: false, message: "Could not save document formatting." };
+
+  await recordAudit("update", "site_settings", null, { scope: "hr_documents" });
+  revalidatePath("/admin/documents");
+  revalidatePath("/admin/print/document/[id]", "page");
+  revalidatePath("/staff/documents");
+
+  return { ok: true, message: "Document formatting saved." };
 }

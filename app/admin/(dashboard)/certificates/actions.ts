@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, recordAudit } from "@/lib/auth";
 import { getSiteUrl } from "@/lib/env";
+import { CERTIFICATE_SETTING_KEYS } from "@/lib/admin/billing";
 import {
   CERTIFICATE_TYPES,
   certificatePrintUrl,
@@ -13,6 +14,8 @@ import {
   type Certificate,
   type CertificateType,
 } from "@/lib/certificates";
+
+export type CertificateSettingsState = { ok: boolean; message: string };
 
 const optional = (max: number) =>
   z
@@ -173,4 +176,28 @@ export async function sendCertificateEmail(formData: FormData) {
   }
 
   redirect(`/admin/certificates?sent=${response.ok ? "1" : "0"}`);
+}
+
+export async function saveCertificateSettings(
+  _prev: CertificateSettingsState,
+  formData: FormData
+): Promise<CertificateSettingsState> {
+  await requireManager();
+
+  const supabase = createClient();
+  const rows = CERTIFICATE_SETTING_KEYS.map((key) => ({
+    key,
+    value: { text: String(formData.get(key) ?? "").trim() },
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+
+  if (error) return { ok: false, message: "Could not save certificate layout." };
+
+  await recordAudit("update", "site_settings", null, { scope: "certificates" });
+  revalidatePath("/admin/certificates");
+  revalidatePath("/admin/print/certificate/[id]", "page");
+
+  return { ok: true, message: "Certificate layout saved." };
 }

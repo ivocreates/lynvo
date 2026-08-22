@@ -2,7 +2,10 @@ import Link from "next/link";
 import { requireManager } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSiteUrl } from "@/lib/env";
+import { getBillingSettings } from "@/lib/admin/billing-settings";
+import { CERTIFICATE_SETTING_GROUPS } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
+import BillingSettingsForm from "@/components/admin/billing-settings-form";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import CopyButton from "@/components/admin/copy-button";
 import CertificateForm, { type CertificatePerson } from "@/components/admin/certificate-form";
@@ -13,7 +16,14 @@ import {
   verifyUrl,
   type Certificate,
 } from "@/lib/certificates";
-import { createCertificate, issueCertificate, revokeCertificate, deleteCertificate, sendCertificateEmail } from "./actions";
+import {
+  createCertificate,
+  issueCertificate,
+  revokeCertificate,
+  deleteCertificate,
+  sendCertificateEmail,
+  saveCertificateSettings,
+} from "./actions";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-border/50 text-text-primary/70",
@@ -25,12 +35,13 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
   await requireManager();
 
   const supabase = createClient();
-  const [{ data: certRows }, { data: peopleRows }] = await Promise.all([
+  const [{ data: certRows }, { data: peopleRows }, settings] = await Promise.all([
     supabase.from("certificates").select("*").order("created_at", { ascending: false }).limit(200),
     supabase
       .from("profiles")
       .select("id, display_name, email, title, department, joined_on, ends_on")
       .eq("is_active", true),
+    getBillingSettings(),
   ]);
 
   const certificates = (certRows ?? []) as Certificate[];
@@ -59,6 +70,12 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
         title="Certificates"
         description="Issue verifiable internship and experience certificates. Anyone can check one at /verify."
       />
+
+      <div className="mb-6">
+        <a href="#certificate-layout" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
+          Layout &amp; partners
+        </a>
+      </div>
 
       <CertificateForm people={people} action={createCertificate} />
 
@@ -182,6 +199,20 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
           ))}
         </ul>
       )}
+
+      <section id="certificate-layout" className="mt-8 border-t border-border pt-8">
+        <PageHeader
+          stamp="LAYOUT"
+          title="Certificate layout"
+          description="Certificate content stamp, wording, layout, seal, and first/second designated partner signatures."
+        />
+        <BillingSettingsForm
+          values={settings}
+          groups={CERTIFICATE_SETTING_GROUPS}
+          action={saveCertificateSettings}
+          submitLabel="Save certificate layout"
+        />
+      </section>
     </div>
   );
 }

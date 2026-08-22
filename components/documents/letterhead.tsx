@@ -31,6 +31,21 @@ export default function DocumentLetterhead({
     settings.billing_llpin && `LLPIN: ${settings.billing_llpin}`,
     settings.billing_gstin && `GSTIN: ${settings.billing_gstin}`,
   ].filter(Boolean);
+  const stampUrl = settings.doc_stamp_url || settings.billing_stamp_url;
+  const signatures = [
+    {
+      url: settings.doc_signature_url || settings.billing_signature_url,
+      name: settings.doc_signatory_name || "Ivo Pereira",
+      title: settings.doc_signatory_title || "Founder & Designated Partner",
+    },
+    settings.doc_second_signature_url || settings.doc_second_signatory_name || settings.doc_second_signatory_title
+      ? {
+          url: settings.doc_second_signature_url,
+          name: settings.doc_second_signatory_name || "Co-Founder",
+          title: settings.doc_second_signatory_title || "Co-Founder & Designated Partner",
+        }
+      : null,
+  ].filter(Boolean) as { url: string; name: string; title: string }[];
 
   return (
     <article className="mx-auto max-w-[210mm] bg-white p-10 text-[13px] leading-relaxed text-ink-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
@@ -143,18 +158,20 @@ export default function DocumentLetterhead({
       </section>
 
       <section className="mt-12 flex flex-wrap justify-between gap-10 text-[12px]">
-        <div>
-          {settings.billing_signature_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={settings.billing_signature_url} alt="Signature" className="h-14 w-auto object-contain" />
-          ) : (
-            <div className="h-12" />
-          )}
-          <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
-            {settings.doc_signatory_name || "Ivo Pereira"}
-          </p>
-          <p className="text-ink-900/70">{settings.doc_signatory_title || "Founder & CEO"}</p>
-          <p className="text-ink-900/70">{settings.billing_legal_name || "LYNVO LLP"}</p>
+        <div className="flex flex-wrap gap-6">
+          {signatures.map((signature) => (
+            <div key={`${signature.name}-${signature.title}`}>
+              {signature.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={signature.url} alt="Signature" className="h-14 w-auto object-contain" />
+              ) : (
+                <div className="h-12" />
+              )}
+              <p className="w-48 border-t border-ink-900/40 pt-1 font-semibold">{signature.name}</p>
+              <p className="text-ink-900/70">{signature.title}</p>
+              <p className="text-ink-900/70">{settings.billing_legal_name || "LYNVO LLP"}</p>
+            </div>
+          ))}
         </div>
         {recipient && doc.audience === "individual" && (
           <div>
@@ -169,9 +186,9 @@ export default function DocumentLetterhead({
             </p>
           </div>
         )}
-        {settings.billing_stamp_url && (
+        {stampUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={settings.billing_stamp_url} alt="Company stamp" className="h-20 w-auto object-contain" />
+          <img src={stampUrl} alt="Company stamp" className="h-20 w-auto object-contain" />
         )}
       </section>
 

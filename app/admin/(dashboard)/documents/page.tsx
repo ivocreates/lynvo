@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getBillingSettings } from "@/lib/admin/billing-settings";
+import { HR_DOCUMENT_SETTING_GROUPS } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
+import BillingSettingsForm from "@/components/admin/billing-settings-form";
 import { DOC_TYPE_LABELS, DOC_AUDIENCE_LABELS, type StaffDocument } from "@/lib/documents";
+import { saveDocumentSettings } from "./actions";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-border/50 text-text-primary/70",
@@ -14,9 +18,10 @@ export default async function DocumentsPage() {
   await requireManager();
 
   const supabase = createClient();
-  const [{ data: docRows }, { data: peopleRows }] = await Promise.all([
+  const [{ data: docRows }, { data: peopleRows }, settings] = await Promise.all([
     supabase.from("staff_documents").select("*").order("created_at", { ascending: false }).limit(200),
     supabase.from("profiles").select("id, display_name, email"),
+    getBillingSettings(),
   ]);
 
   const docs = (docRows ?? []) as StaffDocument[];
@@ -35,12 +40,17 @@ export default async function DocumentsPage() {
         description="Contracts, offer letters, NDAs, and policies on the LYNVO letterhead."
       />
 
-      <Link
-        href="/admin/documents/new"
-        className="mb-6 inline-flex rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
-      >
-        New document
-      </Link>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Link
+          href="/admin/documents/new"
+          className="inline-flex rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
+        >
+          New document
+        </Link>
+        <a href="#document-formatting" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
+          Formatting &amp; partners
+        </a>
+      </div>
 
       {docs.length === 0 ? (
         <div className="rounded-card border border-dashed border-border p-10 text-center text-sm text-text-primary/70">
@@ -88,6 +98,20 @@ export default async function DocumentsPage() {
           ))}
         </ul>
       )}
+
+      <section id="document-formatting" className="mt-8 border-t border-border pt-8">
+        <PageHeader
+          stamp="FORMAT"
+          title="Document formatting"
+          description="HR document footer text, stamp, and first/second designated partner signatures."
+        />
+        <BillingSettingsForm
+          values={settings}
+          groups={HR_DOCUMENT_SETTING_GROUPS}
+          action={saveDocumentSettings}
+          submitLabel="Save document formatting"
+        />
+      </section>
     </div>
   );
 }

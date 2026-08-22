@@ -2,7 +2,7 @@
 
 import { useFormState } from "react-dom";
 import { saveBillingSettings, type BillingSettingsState } from "@/app/admin/(dashboard)/billing/actions";
-import { BILLING_SETTING_GROUPS } from "@/lib/admin/billing";
+import { BILLING_SETTING_GROUPS, type SettingGroup } from "@/lib/admin/billing";
 import SubmitButton from "./submit-button";
 import ImageSettingField from "./image-setting-field";
 
@@ -11,12 +11,22 @@ const initialState: BillingSettingsState = { ok: false, message: "" };
 const inputClass =
   "mt-1 w-full rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none";
 
-export default function BillingSettingsForm({ values }: { values: Record<string, string> }) {
-  const [state, formAction] = useFormState(saveBillingSettings, initialState);
+export default function BillingSettingsForm({
+  values,
+  groups = BILLING_SETTING_GROUPS,
+  action = saveBillingSettings,
+  submitLabel = "Save billing settings",
+}: {
+  values: Record<string, string>;
+  groups?: SettingGroup[];
+  action?: (prev: BillingSettingsState, formData: FormData) => Promise<BillingSettingsState>;
+  submitLabel?: string;
+}) {
+  const [state, formAction] = useFormState(action, initialState);
 
   return (
     <form action={formAction} className="max-w-2xl space-y-8">
-      {BILLING_SETTING_GROUPS.map((group) => (
+      {groups.map((group) => (
         <section key={group.title} className="rounded-card border border-border bg-surface p-5">
           <h2 className="font-display text-lg font-semibold text-ink-900">{group.title}</h2>
           <p className="mt-1 text-sm text-text-primary/70">{group.description}</p>
@@ -61,7 +71,7 @@ export default function BillingSettingsForm({ values }: { values: Record<string,
       )}
 
       <div className="border-t border-border pt-5">
-        <SubmitButton>Save billing settings</SubmitButton>
+        <SubmitButton>{submitLabel}</SubmitButton>
       </div>
     </form>
   );
