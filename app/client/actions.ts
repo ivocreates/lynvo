@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/auth";
 
+export type ReviewState = { ok: boolean; message: string };
+
 /** The client's verdict on a deliverable. The trigger blocks every other field. */
 export async function reviewDeliverable(formData: FormData) {
   await requireClient();
@@ -21,4 +23,25 @@ export async function reviewDeliverable(formData: FormData) {
     .eq("id", id);
 
   revalidatePath("/client");
+}
+
+export async function submitReview(_prev: ReviewState, formData: FormData): Promise<ReviewState> {
+  const profile = await requireClient();
+  const content = String(formData.get("content") ?? "").trim();
+  const rating = Number(formData.get("rating") ?? 0);
+
+  if (content.length < 10 || content.length > 2000) {
+    return { ok: false, message: "Your review must be between 10 and 2,000 characters." };
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return { ok: false, message: "Choose a rating from 1 to 5." };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.from("reviews").insert({ content, rating, client_id: profile.client_id });
+
+  if (error) return { ok: false, message: "We could not submit your review. Please try again." };
+
+  revalidatePath("/client");
+  return { ok: true, message: "Thanks. Your review is awaiting approval." };
 }

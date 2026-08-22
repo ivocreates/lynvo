@@ -70,9 +70,23 @@ export async function createCertificate(formData: FormData) {
   if (!parsed.success) return;
 
   const supabase = createClient();
-  const { data } = await supabase.from("certificates").insert(parsed.data).select("id").maybeSingle();
+  let certificateData = parsed.data;
 
-  if (data) await recordAudit("create", "certificates", data.id, { name: parsed.data.recipient_name });
+  if (parsed.data.recipient_id) {
+    const { data: person } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", parsed.data.recipient_id)
+      .maybeSingle();
+
+    if (person?.display_name?.trim()) {
+      certificateData = { ...parsed.data, recipient_name: person.display_name.trim() };
+    }
+  }
+
+  const { data } = await supabase.from("certificates").insert(certificateData).select("id").maybeSingle();
+
+  if (data) await recordAudit("create", "certificates", data.id, { name: certificateData.recipient_name });
 
   revalidatePath("/admin/certificates");
 }

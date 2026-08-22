@@ -40,6 +40,11 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
     period,
   });
   const layout = settings.certificate_layout === "compact" ? "compact" : "classic";
+  const identifiers = [
+    settings.billing_llpin && `LLPIN: ${settings.billing_llpin}`,
+    settings.billing_gstin && `GSTIN: ${settings.billing_gstin}`,
+    settings.billing_pan && `PAN: ${settings.billing_pan}`,
+  ].filter(Boolean);
   const stampUrl = settings.certificate_stamp_url || settings.billing_stamp_url;
   const signatures = [
     {
@@ -95,9 +100,14 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
             <p className="mt-1 text-[12px] text-ink-900/70">
               {settings.billing_legal_name || "LYNVO LLP"}
             </p>
+            {identifiers.length > 0 && (
+              <p className="mt-1 text-[11px] text-ink-900/70">{identifiers.join("  ·  ")}</p>
+            )}
           </div>
           <div className="text-right text-[12px] text-ink-900/70">
-            <p className="font-mono">{certificate.code}</p>
+            <p>
+              <span>Certificate ID:</span> <span className="font-mono">{certificate.code}</span>
+            </p>
             {certificate.issued_on && <p>Issued {formatCertificateDate(certificate.issued_on)}</p>}
           </div>
         </header>
@@ -136,17 +146,17 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
           )}
         </div>
 
-        <footer className="relative mt-10 grid grid-cols-[1fr_auto_1fr] items-end gap-6">
-          <div className="flex flex-wrap gap-5 text-[12px]">
+        <footer className="relative mt-10 flex items-end justify-between gap-6">
+          <div className="flex shrink-0 flex-nowrap gap-8 text-[12px]">
             {signatures.map((signature) => (
-              <div key={`${signature.name}-${signature.title}`}>
+              <div key={`${signature.name}-${signature.title}`} className="w-44 shrink-0">
                 {signature.url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={signature.url} alt="Signature" className="h-12 w-auto object-contain" />
                 ) : (
                   <div className="h-10" />
                 )}
-                <p className="w-48 border-t border-ink-900/40 pt-1 font-semibold">{signature.name}</p>
+                <p className="border-t border-ink-900/40 pt-1 font-semibold">{signature.name}</p>
                 <p className="text-ink-900/70">{signature.title}</p>
               </div>
             ))}
@@ -157,7 +167,7 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
             <img src={stampUrl} alt="Company stamp" className="h-20 w-auto object-contain" />
           )}
 
-          <div className="flex items-center justify-end gap-4 text-left">
+          <div className="flex shrink-0 items-center justify-end gap-4 text-left">
             <QrCode value={url} size={104} />
             <div className="max-w-[220px] text-[11px] leading-5 text-ink-900/70">
               <p className="font-semibold text-ink-900">Verify this certificate</p>

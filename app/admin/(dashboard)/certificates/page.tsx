@@ -47,7 +47,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
   const certificates = (certRows ?? []) as Certificate[];
   const people: CertificatePerson[] = ((peopleRows ?? []) as Record<string, any>[]).map((person) => ({
     id: person.id,
-    name: person.display_name ?? person.email,
+    name: person.display_name?.trim() ?? "",
     email: person.email,
     title: person.title,
     department: person.department,

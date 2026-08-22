@@ -49,7 +49,7 @@ export default function CertificateForm({
             <option value="">Not on the team</option>
             {people.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.name}
+                {entry.name || "Unnamed team member"}
               </option>
             ))}
           </select>

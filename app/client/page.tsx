@@ -17,7 +17,8 @@ import {
   type Engagement,
   type Milestone,
 } from "@/lib/clients";
-import { reviewDeliverable } from "./actions";
+import { reviewDeliverable, submitReview } from "./actions";
+import ReviewForm from "@/components/client/review-form";
 
 export default async function ClientOverviewPage() {
   const profile = await requireClient();
@@ -264,6 +265,15 @@ export default async function ClientOverviewPage() {
           </ul>
         </section>
       )}
+
+      <section className="mt-10">
+        <p className="section-stamp">SHARE YOUR EXPERIENCE</p>
+        <h2 className="mt-2 font-display text-2xl font-semibold text-ink-900">Leave a review</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-primary/75">
+          Your review will appear publicly after our team approves it.
+        </p>
+        <ReviewForm action={submitReview} />
+      </section>
     </div>
   );
 }
