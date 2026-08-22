@@ -12,6 +12,7 @@ const LABEL_CLASS = "block text-xs uppercase tracking-[0.18em] text-text-primary
 export default async function PeoplePage() {
   const actor = await requireManager();
   const canManageAccess = hasRole(actor, "super_admin");
+  const canInvite = hasRole(actor, "admin");
 
   const supabase = createClient();
   const { data } = await supabase
@@ -34,7 +35,7 @@ export default async function PeoplePage() {
         description="Invite the team, set roles, and keep employment details current."
       />
 
-      {canManageAccess && <InviteForm />}
+      {canInvite && <InviteForm actorRole={actor.role} />}
 
       <div className="space-y-4">
         {people.map((person) => {

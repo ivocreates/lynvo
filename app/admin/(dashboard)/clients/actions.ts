@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
+import { provisionAccount } from "@/lib/admin/invites";
 import { getSiteUrl } from "@/lib/env";
 import {
   CLIENT_STATUSES,
@@ -20,7 +21,7 @@ import {
   type MilestoneStatus,
 } from "@/lib/clients";
 
-export type ClientState = { ok: boolean; message: string };
+export type ClientState = { ok: boolean; message: string; link?: string | null };
 
 const optional = (max: number) =>
   z
@@ -342,30 +343,52 @@ export async function inviteClientUser(_prev: ClientState, formData: FormData): 
 
   const clientId = String(formData.get("client_id") ?? "");
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "").trim();
 
   if (!clientId) return { ok: false, message: "Missing client." };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { ok: false, message: "Enter a valid email address." };
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${getSiteUrl()}/auth/confirm?next=/admin/update-password`,
+  const result = await provisionAccount({
+    email,
+    password: password || null,
+    next: "/admin/update-password",
+    subject: "Your LYNVO client portal access",
+    intro:
+      "You have been given access to the LYNVO client portal, where you can follow project progress, deliverables, reports and quotes.",
   });
 
-  if (error || !data.user) {
-    return { ok: false, message: "Could not send the invite. The address may already be registered." };
-  }
+  if (!result.ok) return { ok: false, message: result.message };
 
-  await admin
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("profiles")
     .update({ role: "client", is_active: true, client_id: clientId })
-    .eq("id", data.user.id);
+    .eq("id", result.userId);
+
+  if (error) {
+    return { ok: false, message: "The account exists but could not be linked to this client." };
+  }
 
   await recordAudit("invite", "clients", clientId, { email });
-
   revalidatePath(`/admin/clients/${clientId}`);
-  return { ok: true, message: `Portal invite sent to ${email}.` };
+
+  if (!result.link) {
+    return {
+      ok: true,
+      message: `Portal access ready for ${email}. Share the password you just set.`,
+      link: null,
+    };
+  }
+
+  return {
+    ok: true,
+    message: result.emailed
+      ? `Portal invite emailed to ${email}. The link below works too.`
+      : `Portal invite link created for ${email}. Email delivery is unavailable, so send this link yourself.`,
+    link: result.link,
+  };
 }
 
 export async function revokeClientUser(formData: FormData) {

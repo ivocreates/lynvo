@@ -51,3 +51,15 @@ export async function getCatalog() {
 
   return { presets, packages };
 }
+
+/** Clients a document can be shared with through the portal. */
+export async function getClientOptions() {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("clients")
+    .select("id, name")
+    .neq("status", "archived")
+    .order("name", { ascending: true });
+
+  return (data ?? []) as { id: string; name: string }[];
+}

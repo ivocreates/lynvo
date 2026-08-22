@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import LoginForm from "@/components/admin/login-form";
+import LinkSessionHandler from "@/components/admin/link-session-handler";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default function AdminLoginPage() {
   return (
-    <div className="container-page flex min-h-[70vh] items-center justify-center py-20">
+    <div className="container-page flex min-h-[70vh] flex-col items-center justify-center py-20">
+      <LinkSessionHandler />
       <Suspense fallback={null}>
         <LoginForm />
       </Suspense>

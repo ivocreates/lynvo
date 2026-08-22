@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
-import { getCatalog } from "@/lib/admin/catalog";
+import { getCatalog, getClientOptions } from "@/lib/admin/catalog";
 import type { LineItem } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
 import BillingForm, { type DocumentRecord } from "@/components/admin/billing-form";
@@ -22,7 +22,7 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
 
   const record = document as unknown as DocumentRecord;
 
-  const [{ data: itemRows }, catalog, settings] = await Promise.all([
+  const [{ data: itemRows }, catalog, settings, clients] = await Promise.all([
     supabase
       .from("billing_document_items")
       .select("name, description, category, recurring, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
@@ -30,6 +30,7 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
       .order("position", { ascending: true }),
     getCatalog(),
     getBillingSettings(),
+    getClientOptions(),
   ]);
 
   const items = ((itemRows ?? []) as LineItem[]).map((item) => ({
@@ -57,6 +58,7 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
         items={items}
         presets={catalog.presets}
         packages={catalog.packages}
+        clients={clients}
         defaults={{
           currency: settings.billing_currency || "INR",
           terms: record.doc_type === "invoice" ? settings.billing_invoice_terms : settings.billing_quote_terms,

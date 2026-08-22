@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+import { requireClient } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import type { LineItem } from "@/lib/admin/billing";
 import PrintButton from "@/components/admin/print-button";
 import BillingDocument, { type BillingDocumentRecord } from "@/components/documents/billing-document";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata = { robots: { index: false, follow: false } };
 
-export default async function BillingPrintPage({ params }: { params: { id: string } }) {
-  await requireStaff();
+export default async function ClientQuotePage({ params }: { params: { id: string } }) {
+  const profile = await requireClient();
 
   const supabase = createClient();
   const { data: document } = await supabase
     .from("billing_documents")
     .select("*")
     .eq("id", params.id)
+    .eq("client_id", profile.client_id)
     .maybeSingle();
 
   if (!document) notFound();
@@ -40,12 +40,12 @@ export default async function BillingPrintPage({ params }: { params: { id: strin
   }));
 
   return (
-    <div className="min-h-screen bg-canvas-warm py-8 print:bg-white print:py-0">
+    <div>
       <style>{"@page { size: A4; margin: 14mm; }"}</style>
 
-      <div className="mx-auto mb-6 flex max-w-[210mm] items-center justify-between gap-4 px-4 print:hidden">
-        <Link href="/admin/billing" className="text-sm text-brand-700 underline">
-          Back to billing
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 print:hidden">
+        <Link href="/client/quotes" className="text-sm text-brand-700 underline">
+          Back to quotes &amp; invoices
         </Link>
         <PrintButton />
       </div>

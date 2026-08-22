@@ -48,6 +48,11 @@ export interface PackagePreset {
   badge: string | null;
 }
 
+export interface ClientOption {
+  id: string;
+  name: string;
+}
+
 export interface DocumentRecord {
   id: string;
   doc_type: DocType;
@@ -62,6 +67,7 @@ export interface DocumentRecord {
   client_gstin: string | null;
   currency: string;
   region: Region | null;
+  client_id: string | null;
   discount_amount: number;
   notes: string | null;
   terms: string | null;
@@ -123,6 +129,7 @@ export default function BillingForm({
   items,
   presets,
   packages = [],
+  clients = [],
   defaults,
   action = saveDocument,
   canSetStatus = true,
@@ -132,6 +139,7 @@ export default function BillingForm({
   items?: LineItem[];
   presets: PresetItem[];
   packages?: PackagePreset[];
+  clients?: ClientOption[];
   defaults: { currency: string; terms: string };
   action?: (state: BillingState, formData: FormData) => Promise<BillingState>;
   canSetStatus?: boolean;
@@ -371,6 +379,29 @@ export default function BillingForm({
               className={inputClass}
             />
           </div>
+          {clients.length > 0 && (
+            <div className="sm:col-span-2">
+              <label htmlFor="client_id" className="block text-sm font-medium text-ink-900">
+                Client portal account
+              </label>
+              <select
+                id="client_id"
+                name="client_id"
+                defaultValue={document?.client_id ?? ""}
+                className={inputClass}
+              >
+                <option value="">Not shared with a client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-text-primary/60">
+                Linked documents appear in that client&apos;s portal once the status is Sent.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

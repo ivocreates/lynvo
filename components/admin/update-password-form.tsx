@@ -41,7 +41,7 @@ export default function UpdatePasswordForm() {
       return;
     }
 
-    router.push("/admin");
+    router.push("/auth/landing");
     router.refresh();
   }
 

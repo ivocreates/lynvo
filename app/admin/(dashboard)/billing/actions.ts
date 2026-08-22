@@ -74,6 +74,9 @@ export async function saveDocument(
     return value || null;
   };
 
+  const clientId = text("client_id");
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   const supabase = createClient();
   const number = id ? String(formData.get("number") ?? "").trim() : await buildNumber(docType);
   const region = readRegion(formData.get("region"));
@@ -89,6 +92,7 @@ export async function saveDocument(
     client_phone: text("client_phone"),
     client_address: text("client_address"),
     client_gstin: text("client_gstin"),
+    client_id: clientId && UUID.test(clientId) ? clientId : null,
     region,
     currency: text("currency") ?? currencyForRegion(region),
     discount_amount: discount,

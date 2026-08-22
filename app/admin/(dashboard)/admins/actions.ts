@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSuperAdmin, requireManager, recordAudit } from "@/lib/auth";
-import { EMPLOYMENT_TYPES, isRole } from "@/lib/roles";
-import { getSiteUrl } from "@/lib/env";
+import { requireSuperAdmin, requireManager, requireAdmin, recordAudit } from "@/lib/auth";
+import { EMPLOYMENT_TYPES, isRole, ROLE_LABELS, ROLE_RANK } from "@/lib/roles";
+import { provisionAccount } from "@/lib/admin/invites";
 
-export type AdminsState = { ok: boolean; message: string };
+export type AdminsState = { ok: boolean; message: string; link?: string | null };
 
 const optional = (max: number) =>
   z
@@ -90,30 +90,37 @@ export async function updateStaffDetails(formData: FormData) {
 }
 
 export async function inviteStaff(_prev: AdminsState, formData: FormData): Promise<AdminsState> {
-  await requireSuperAdmin();
+  const actor = await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = String(formData.get("role") ?? "employee");
+  const password = String(formData.get("password") ?? "").trim();
   const employmentType = String(formData.get("employment_type") ?? "");
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { ok: false, message: "Enter a valid email address." };
   }
-  if (!isRole(role)) {
-    return { ok: false, message: "Choose a valid role." };
+  if (!isRole(role) || role === "client") {
+    return { ok: false, message: "Choose a valid team role." };
   }
+  // Nobody but a super admin may create an account at or above their own rank.
+  if (actor.role !== "super_admin" && ROLE_RANK[role] >= ROLE_RANK[actor.role]) {
+    return { ok: false, message: "You can only invite roles below your own." };
+  }
+
+  const result = await provisionAccount({
+    email,
+    password: password || null,
+    next: "/admin/update-password",
+    subject: "Your LYNVO workspace invitation",
+    intro: `You have been invited to the LYNVO workspace as ${ROLE_LABELS[role]}.`,
+  });
+
+  if (!result.ok) return { ok: false, message: result.message };
 
   const admin = createAdminClient();
-  const redirectTo = `${getSiteUrl()}/auth/confirm?next=/admin/update-password`;
-
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
-
-  if (error || !data.user) {
-    return { ok: false, message: "Could not send the invite. The address may already be registered." };
-  }
-
   // The signup trigger creates an inactive editor profile; apply the chosen access.
-  await admin
+  const { error } = await admin
     .from("profiles")
     .update({
       role,
@@ -122,9 +129,24 @@ export async function inviteStaff(_prev: AdminsState, formData: FormData): Promi
         ? employmentType
         : null,
     })
-    .eq("id", data.user.id);
-  await recordAudit("invite", "profiles", data.user.id, { email, role });
+    .eq("id", result.userId);
 
+  if (error) {
+    return { ok: false, message: "The account exists but its role could not be applied. Set it below." };
+  }
+
+  await recordAudit("invite", "profiles", result.userId, { email, role });
   revalidatePath("/admin/admins");
-  return { ok: true, message: `Invite sent to ${email}.` };
+
+  if (!result.link) {
+    return { ok: true, message: `Account ready for ${email}. Share the password you just set.`, link: null };
+  }
+
+  return {
+    ok: true,
+    message: result.emailed
+      ? `Invite emailed to ${email}. The link below works too.`
+      : `Invite link created for ${email}. Email delivery is unavailable, so send this link yourself.`,
+    link: result.link,
+  };
 }
