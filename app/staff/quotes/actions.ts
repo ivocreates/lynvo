@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireTeamMember, recordAudit } from "@/lib/auth";
-import { calculateTotals, nextDocumentNumber, parseLineItems } from "@/lib/admin/billing";
+import { calculateTotals, currencyForRegion, nextDocumentNumber, parseLineItems, readRegion } from "@/lib/admin/billing";
 import type { BillingState } from "@/app/admin/(dashboard)/billing/actions";
 
 async function buildQuoteNumber() {
@@ -52,6 +52,7 @@ export async function saveStaffQuote(
   };
 
   const supabase = createClient();
+  const region = readRegion(formData.get("region"));
 
   const values = {
     doc_type: "quote" as const,
@@ -63,7 +64,8 @@ export async function saveStaffQuote(
     client_phone: text("client_phone"),
     client_address: text("client_address"),
     client_gstin: text("client_gstin"),
-    currency: text("currency") ?? "INR",
+    region,
+    currency: text("currency") ?? currencyForRegion(region),
     discount_amount: discount,
     subtotal,
     tax_amount: taxAmount,

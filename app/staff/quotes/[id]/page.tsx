@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { requireTeamMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
-import BillingForm, { type PresetItem } from "@/components/admin/billing-form";
+import { getCatalog } from "@/lib/admin/catalog";
+import BillingForm from "@/components/admin/billing-form";
 import type { LineItem } from "@/lib/admin/billing";
 import { saveStaffQuote } from "../actions";
 
@@ -20,17 +21,13 @@ export default async function EditStaffQuotePage({ params }: { params: { id: str
 
   if (!document) notFound();
 
-  const [{ data: itemRows }, { data: presetRows }, settings] = await Promise.all([
+  const [{ data: itemRows }, catalog, settings] = await Promise.all([
     supabase
       .from("billing_document_items")
-      .select("name, description, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
+      .select("name, description, category, recurring, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
       .eq("document_id", params.id)
       .order("position", { ascending: true }),
-    supabase
-      .from("billing_items")
-      .select("id, name, description, unit, unit_price, tax_rate, hsn_sac")
-      .eq("active", true)
-      .order("order", { ascending: true }),
+    getCatalog(),
     getBillingSettings(),
   ]);
 
@@ -44,7 +41,8 @@ export default async function EditStaffQuotePage({ params }: { params: { id: str
           docType="quote"
           document={document as any}
           items={(itemRows ?? []) as LineItem[]}
-          presets={(presetRows ?? []) as PresetItem[]}
+          presets={catalog.presets}
+          packages={catalog.packages}
           defaults={{
             currency: settings.billing_currency || "INR",
             terms: settings.billing_quote_terms,

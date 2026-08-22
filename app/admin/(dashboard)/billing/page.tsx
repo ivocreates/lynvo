@@ -76,7 +76,13 @@ export default async function BillingListPage({
           href="/admin/billing-items"
           className="rounded-card border border-border px-4 py-2 text-sm font-medium text-ink-900 hover:bg-canvas-warm"
         >
-          Preset items
+          Service catalog
+        </Link>
+        <Link
+          href="/admin/billing-packages"
+          className="rounded-card border border-border px-4 py-2 text-sm font-medium text-ink-900 hover:bg-canvas-warm"
+        >
+          Package presets
         </Link>
         <Link
           href="/admin/billing/settings"

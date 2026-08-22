@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
+import { getCatalog } from "@/lib/admin/catalog";
 import type { LineItem } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
-import BillingForm, { type DocumentRecord, type PresetItem } from "@/components/admin/billing-form";
+import BillingForm, { type DocumentRecord } from "@/components/admin/billing-form";
 
 export default async function EditBillingDocumentPage({ params }: { params: { id: string } }) {
   await requireStaff();
@@ -21,17 +22,13 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
 
   const record = document as unknown as DocumentRecord;
 
-  const [{ data: itemRows }, { data: presetRows }, settings] = await Promise.all([
+  const [{ data: itemRows }, catalog, settings] = await Promise.all([
     supabase
       .from("billing_document_items")
-      .select("name, description, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
+      .select("name, description, category, recurring, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
       .eq("document_id", params.id)
       .order("position", { ascending: true }),
-    supabase
-      .from("billing_items")
-      .select("id, name, description, unit, unit_price, tax_rate, hsn_sac")
-      .eq("active", true)
-      .order("order", { ascending: true }),
+    getCatalog(),
     getBillingSettings(),
   ]);
 
@@ -58,7 +55,8 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
         docType={record.doc_type}
         document={{ ...record, discount_amount: Number(record.discount_amount) }}
         items={items}
-        presets={(presetRows ?? []) as PresetItem[]}
+        presets={catalog.presets}
+        packages={catalog.packages}
         defaults={{
           currency: settings.billing_currency || "INR",
           terms: record.doc_type === "invoice" ? settings.billing_invoice_terms : settings.billing_quote_terms,

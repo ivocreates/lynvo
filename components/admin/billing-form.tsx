@@ -5,17 +5,47 @@ import { useMemo, useState } from "react";
 import { useFormState } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { saveDocument, type BillingState } from "@/app/admin/(dashboard)/billing/actions";
-import { DOC_STATUSES, calculateTotals, formatMoney, type DocType, type LineItem } from "@/lib/admin/billing";
+import {
+  CATEGORY_OPTIONS,
+  DOC_STATUSES,
+  RECURRING_OPTIONS,
+  REGIONS,
+  calculateTotals,
+  currencyForRegion,
+  formatMoney,
+  recurringTotals,
+  type DocType,
+  type LineItem,
+  type Recurring,
+  type Region,
+} from "@/lib/admin/billing";
 import SubmitButton from "./submit-button";
 
 export interface PresetItem {
   id: string;
   name: string;
   description: string | null;
+  category: string | null;
   unit: string | null;
   unit_price: number;
+  unit_price_intl: number;
+  price_from: boolean;
+  recurring: Recurring;
   tax_rate: number;
   hsn_sac: string | null;
+}
+
+export interface PackagePreset {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  price_inr: number;
+  price_intl: number;
+  price_from: boolean;
+  recurring: Recurring;
+  includes: string[] | null;
+  badge: string | null;
 }
 
 export interface DocumentRecord {
@@ -31,6 +61,7 @@ export interface DocumentRecord {
   client_address: string | null;
   client_gstin: string | null;
   currency: string;
+  region: Region | null;
   discount_amount: number;
   notes: string | null;
   terms: string | null;
@@ -40,6 +71,8 @@ type Row = {
   key: string;
   name: string;
   description: string;
+  category: string;
+  recurring: Recurring;
   unit: string;
   hsn_sac: string;
   quantity: string;
@@ -59,6 +92,8 @@ function emptyRow(): Row {
     key: `row-${rowCounter}`,
     name: "",
     description: "",
+    category: "Other",
+    recurring: "one_time",
     unit: "",
     hsn_sac: "",
     quantity: "1",
@@ -67,11 +102,27 @@ function emptyRow(): Row {
   };
 }
 
+function toLineItem(row: Row): LineItem {
+  return {
+    name: row.name,
+    description: null,
+    category: row.category,
+    recurring: row.recurring,
+    unit: null,
+    hsn_sac: null,
+    quantity: Number(row.quantity) || 0,
+    unit_price: Number(row.unit_price) || 0,
+    tax_rate: Number(row.tax_rate) || 0,
+    line_total: 0,
+  };
+}
+
 export default function BillingForm({
   docType,
   document,
   items,
   presets,
+  packages = [],
   defaults,
   action = saveDocument,
   canSetStatus = true,
@@ -80,6 +131,7 @@ export default function BillingForm({
   document?: DocumentRecord;
   items?: LineItem[];
   presets: PresetItem[];
+  packages?: PackagePreset[];
   defaults: { currency: string; terms: string };
   action?: (state: BillingState, formData: FormData) => Promise<BillingState>;
   canSetStatus?: boolean;
@@ -92,6 +144,8 @@ export default function BillingForm({
       ...emptyRow(),
       name: item.name,
       description: item.description ?? "",
+      category: item.category ?? "Other",
+      recurring: item.recurring ?? "one_time",
       unit: item.unit ?? "",
       hsn_sac: item.hsn_sac ?? "",
       quantity: String(item.quantity),
@@ -101,47 +155,78 @@ export default function BillingForm({
   });
 
   const [discount, setDiscount] = useState(String(document?.discount_amount ?? 0));
+  const [region, setRegion] = useState<Region>(document?.region ?? "IN");
   const [currency, setCurrency] = useState(document?.currency || defaults.currency || "INR");
 
-  const totals = useMemo(
-    () =>
-      calculateTotals(
-        rows.map((row) => ({
-          name: row.name,
-          description: null,
-          unit: null,
-          hsn_sac: null,
-          quantity: Number(row.quantity) || 0,
-          unit_price: Number(row.unit_price) || 0,
-          tax_rate: Number(row.tax_rate) || 0,
-          line_total: 0,
-        })),
-        Number(discount) || 0
-      ),
-    [rows, discount]
-  );
+  const lineItems = useMemo(() => rows.map(toLineItem), [rows]);
+  const totals = useMemo(() => calculateTotals(lineItems, Number(discount) || 0), [lineItems, discount]);
+  const recurring = useMemo(() => recurringTotals(lineItems), [lineItems]);
+
+  const presetGroups = useMemo(() => {
+    const groups = new Map<string, PresetItem[]>();
+    for (const preset of presets) {
+      const key = preset.category?.trim() || "Other";
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(preset);
+      else groups.set(key, [preset]);
+    }
+    return [...groups.entries()];
+  }, [presets]);
 
   function updateRow(key: string, patch: Partial<Row>) {
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  }
+
+  /** Replaces the placeholder empty row the editor starts with. */
+  function appendRow(row: Row) {
+    setRows((current) => {
+      const meaningful = current.filter((entry) => entry.name.trim() !== "");
+      return [...meaningful, row];
+    });
+  }
+
+  function changeRegion(next: Region) {
+    setRegion(next);
+    setCurrency(currencyForRegion(next));
   }
 
   function addPreset(presetId: string) {
     const preset = presets.find((entry) => entry.id === presetId);
     if (!preset) return;
 
-    setRows((current) => [
-      ...current,
-      {
-        ...emptyRow(),
-        name: preset.name,
-        description: preset.description ?? "",
-        unit: preset.unit ?? "",
-        hsn_sac: preset.hsn_sac ?? "",
-        quantity: "1",
-        unit_price: String(preset.unit_price),
-        tax_rate: String(preset.tax_rate),
-      },
-    ]);
+    const price = region === "INT" ? preset.unit_price_intl : preset.unit_price;
+
+    appendRow({
+      ...emptyRow(),
+      name: preset.name,
+      description: preset.description ?? (preset.price_from ? "Starting price; final scope may vary." : ""),
+      category: preset.category ?? "Other",
+      recurring: preset.recurring ?? "one_time",
+      unit: preset.unit ?? "",
+      hsn_sac: preset.hsn_sac ?? "",
+      quantity: "1",
+      unit_price: String(price),
+      tax_rate: String(preset.tax_rate ?? 0),
+    });
+  }
+
+  function addPackage(packageId: string) {
+    const preset = packages.find((entry) => entry.id === packageId);
+    if (!preset) return;
+
+    const price = region === "INT" ? preset.price_intl : preset.price_inr;
+    const scope = (preset.includes ?? []).map((entry) => `• ${entry}`).join("\n");
+
+    appendRow({
+      ...emptyRow(),
+      name: preset.name,
+      description: [preset.description, scope].filter(Boolean).join("\n"),
+      category: preset.category,
+      recurring: preset.recurring,
+      unit: preset.recurring === "one_time" ? "package" : preset.recurring === "monthly" ? "month" : "year",
+      quantity: "1",
+      unit_price: String(price),
+    });
   }
 
   const label = docType === "invoice" ? "Invoice" : "Quote";
@@ -149,6 +234,7 @@ export default function BillingForm({
   return (
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="doc_type" value={docType} />
+      <input type="hidden" name="region" value={region} />
       {document && <input type="hidden" name="__id" value={document.id} />}
       {document && <input type="hidden" name="number" value={document.number} />}
 
@@ -211,6 +297,26 @@ export default function BillingForm({
               className={inputClass}
             />
           </div>
+          <div>
+            <label htmlFor="region" className="block text-sm font-medium text-ink-900">
+              Pricing region
+            </label>
+            <select
+              id="region"
+              value={region}
+              onChange={(event) => changeRegion(event.target.value as Region)}
+              className={inputClass}
+            >
+              {REGIONS.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-text-primary/60">
+              Catalog items are added at the {region === "INT" ? "international" : "India"} price.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -271,9 +377,37 @@ export default function BillingForm({
       <section className="rounded-card border border-border bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-semibold text-ink-900">Line items</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {packages.length > 0 && (
+              <>
+                <label htmlFor="package-picker" className="text-sm text-text-primary/70">
+                  Add package
+                </label>
+                <select
+                  id="package-picker"
+                  value=""
+                  onChange={(event) => {
+                    addPackage(event.target.value);
+                    event.target.value = "";
+                  }}
+                  className="rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
+                >
+                  <option value="">Select a preset...</option>
+                  {packages.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name} —{" "}
+                      {formatMoney(
+                        region === "INT" ? preset.price_intl : preset.price_inr,
+                        currencyForRegion(region)
+                      )}
+                      {preset.price_from ? "+" : ""}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <label htmlFor="preset-picker" className="text-sm text-text-primary/70">
-              Add preset
+              Add service
             </label>
             <select
               id="preset-picker"
@@ -285,10 +419,19 @@ export default function BillingForm({
               className="rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
             >
               <option value="">Select an item...</option>
-              {presets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
+              {presetGroups.map(([category, entries]) => (
+                <optgroup key={category} label={category}>
+                  {entries.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name} —{" "}
+                      {formatMoney(
+                        region === "INT" ? preset.unit_price_intl : preset.unit_price,
+                        currencyForRegion(region)
+                      )}
+                      {preset.price_from ? "+" : ""}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -296,7 +439,7 @@ export default function BillingForm({
 
         {presets.length === 0 && (
           <p className="mt-3 text-sm text-text-primary/70">
-            No preset items yet.{" "}
+            No catalog items yet.{" "}
             <Link href="/admin/billing-items/new" className="text-brand-700 underline">
               Create one
             </Link>{" "}
@@ -387,15 +530,55 @@ export default function BillingForm({
                     <label htmlFor={`item-desc-${row.key}`} className="block text-sm font-medium text-ink-900">
                       Description
                     </label>
-                    <input
+                    <textarea
                       id={`item-desc-${row.key}`}
                       name={`items[${index}][description]`}
+                      rows={row.description.includes("\n") ? 5 : 1}
                       value={row.description}
                       onChange={(event) => updateRow(row.key, { description: event.target.value })}
                       className={inputClass}
                     />
                   </div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-3">
+                    <label htmlFor={`item-cat-${row.key}`} className="block text-sm font-medium text-ink-900">
+                      Category
+                    </label>
+                    <select
+                      id={`item-cat-${row.key}`}
+                      name={`items[${index}][category]`}
+                      value={row.category}
+                      onChange={(event) => updateRow(row.key, { category: event.target.value })}
+                      className={inputClass}
+                    >
+                      {CATEGORY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="lg:col-span-3">
+                    <label htmlFor={`item-recurring-${row.key}`} className="block text-sm font-medium text-ink-900">
+                      Billing cycle
+                    </label>
+                    <select
+                      id={`item-recurring-${row.key}`}
+                      name={`items[${index}][recurring]`}
+                      value={row.recurring}
+                      onChange={(event) => updateRow(row.key, { recurring: event.target.value as Recurring })}
+                      className={inputClass}
+                    >
+                      {RECURRING_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-3 lg:grid-cols-12">
+                  <div className="lg:col-span-3">
                     <label htmlFor={`item-unit-${row.key}`} className="block text-sm font-medium text-ink-900">
                       Unit
                     </label>
@@ -407,7 +590,7 @@ export default function BillingForm({
                       className={inputClass}
                     />
                   </div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-3">
                     <label htmlFor={`item-hsn-${row.key}`} className="block text-sm font-medium text-ink-900">
                       HSN / SAC
                     </label>
@@ -419,9 +602,10 @@ export default function BillingForm({
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex items-end justify-end lg:col-span-2">
+                  <div className="flex items-end justify-end lg:col-span-6">
                     <p className="pb-2 text-sm font-medium text-ink-900">
                       {formatMoney(lineTotal, currency)}
+                      {row.recurring === "monthly" ? " / month" : row.recurring === "yearly" ? " / year" : ""}
                     </p>
                   </div>
                 </div>
@@ -485,10 +669,25 @@ export default function BillingForm({
             <dd className="text-ink-900">{formatMoney(totals.taxAmount, currency)}</dd>
           </div>
           <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
-            <dt className="text-ink-900">Total</dt>
+            <dt className="text-ink-900">Project total</dt>
             <dd className="text-ink-900">{formatMoney(totals.total, currency)}</dd>
           </div>
+          {recurring.map((entry) => (
+            <div key={entry.cycle} className="flex justify-between text-sm">
+              <dt className="text-text-primary/70">{entry.label} services</dt>
+              <dd className="text-ink-900">
+                {formatMoney(entry.amount, currency)}
+                {entry.suffix}
+              </dd>
+            </div>
+          ))}
         </dl>
+
+        {recurring.length > 0 && (
+          <p className="mt-3 text-xs text-text-primary/60">
+            Recurring services are quoted separately and are not part of the project total.
+          </p>
+        )}
       </section>
 
       <section className="rounded-card border border-border bg-surface p-5">

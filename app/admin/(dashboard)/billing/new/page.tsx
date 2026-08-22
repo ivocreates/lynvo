@@ -1,9 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
+import { getCatalog } from "@/lib/admin/catalog";
 import type { DocType } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
-import BillingForm, { type PresetItem } from "@/components/admin/billing-form";
+import BillingForm from "@/components/admin/billing-form";
 
 export default async function NewBillingDocumentPage({
   searchParams,
@@ -13,14 +13,7 @@ export default async function NewBillingDocumentPage({
   await requireStaff();
 
   const docType: DocType = searchParams.type === "invoice" ? "invoice" : "quote";
-  const settings = await getBillingSettings();
-
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("billing_items")
-    .select("id, name, description, unit, unit_price, tax_rate, hsn_sac")
-    .eq("active", true)
-    .order("order", { ascending: true });
+  const [settings, catalog] = await Promise.all([getBillingSettings(), getCatalog()]);
 
   const label = docType === "invoice" ? "invoice" : "quote";
 
@@ -33,7 +26,8 @@ export default async function NewBillingDocumentPage({
       />
       <BillingForm
         docType={docType}
-        presets={(data ?? []) as PresetItem[]}
+        presets={catalog.presets}
+        packages={catalog.packages}
         defaults={{
           currency: settings.billing_currency || "INR",
           terms: docType === "invoice" ? settings.billing_invoice_terms : settings.billing_quote_terms,

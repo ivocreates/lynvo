@@ -7,8 +7,10 @@ import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
 import {
   BILLING_SETTING_KEYS,
   calculateTotals,
+  currencyForRegion,
   nextDocumentNumber,
   parseLineItems,
+  readRegion,
   type DocType,
 } from "@/lib/admin/billing";
 
@@ -74,6 +76,7 @@ export async function saveDocument(
 
   const supabase = createClient();
   const number = id ? String(formData.get("number") ?? "").trim() : await buildNumber(docType);
+  const region = readRegion(formData.get("region"));
 
   const values = {
     doc_type: docType,
@@ -86,7 +89,8 @@ export async function saveDocument(
     client_phone: text("client_phone"),
     client_address: text("client_address"),
     client_gstin: text("client_gstin"),
-    currency: text("currency") ?? "INR",
+    region,
+    currency: text("currency") ?? currencyForRegion(region),
     discount_amount: discount,
     subtotal,
     tax_amount: taxAmount,

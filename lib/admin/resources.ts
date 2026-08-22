@@ -1,3 +1,5 @@
+import { CATEGORY_OPTIONS, RECURRING_OPTIONS } from "@/lib/admin/billing";
+
 export type FieldType =
   | "text"
   | "textarea"
@@ -45,6 +47,8 @@ const SEO_FIELDS: FieldConfig[] = [
   { name: "seo_title", label: "SEO title", type: "text" },
   { name: "seo_description", label: "SEO description", type: "textarea" },
 ];
+
+const RECURRING_OPTIONS_CONFIG = RECURRING_OPTIONS.map(({ value, label }) => ({ value, label }));
 
 export const RESOURCES: ResourceConfig[] = [
   {
@@ -191,20 +195,60 @@ export const RESOURCES: ResourceConfig[] = [
   {
     key: "billing-items",
     table: "billing_items",
-    label: "Billing items",
-    labelSingular: "Billing item",
+    label: "Catalog items",
+    labelSingular: "Catalog item",
     titleField: "name",
     orderBy: { column: "order", ascending: true },
-    searchColumns: ["name", "hsn_sac"],
+    searchColumns: ["name", "category", "code", "hsn_sac"],
     fields: [
       { name: "name", label: "Name", type: "text", required: true, inList: true },
+      { name: "category", label: "Category", type: "select", required: true, options: CATEGORY_OPTIONS, inList: true },
+      { name: "code", label: "Code", type: "text", help: "Stable catalogue key. Leave blank for one-off items." },
       { name: "description", label: "Description", type: "textarea" },
-      { name: "unit", label: "Unit", type: "text", inList: true, help: "e.g. hour, page, project, month." },
-      { name: "unit_price", label: "Unit price", type: "number", min: 0, inList: true },
-      { name: "tax_rate", label: "Tax rate (%)", type: "number", min: 0, max: 100, inList: true },
+      { name: "unit", label: "Unit", type: "text", inList: true, help: "e.g. page, integration, module, hour, month." },
+      { name: "unit_price", label: "Price — India (INR)", type: "number", min: 0, inList: true },
+      { name: "unit_price_intl", label: "Price — International (USD)", type: "number", min: 0, inList: true },
+      { name: "price_from", label: "Starting price (from)", type: "boolean", help: "Shows the price as a floor that may rise with complexity." },
+      { name: "optional", label: "Optional add-on", type: "boolean", inList: true },
+      { name: "recurring", label: "Billing cycle", type: "select", required: true, options: RECURRING_OPTIONS_CONFIG, inList: true },
+      { name: "tax_rate", label: "Tax rate (%)", type: "number", min: 0, max: 100 },
       { name: "hsn_sac", label: "HSN / SAC", type: "text" },
       { name: "active", label: "Active", type: "boolean", inList: true },
-      { name: "order", label: "Order", type: "number", min: 0, inList: true },
+      { name: "order", label: "Order", type: "number", min: 0 },
+    ],
+  },
+  {
+    key: "billing-packages",
+    table: "billing_packages",
+    label: "Package presets",
+    labelSingular: "Package preset",
+    titleField: "name",
+    orderBy: { column: "order", ascending: true },
+    searchColumns: ["name", "code", "category"],
+    fields: [
+      { name: "name", label: "Name", type: "text", required: true, inList: true },
+      { name: "code", label: "Code", type: "text", help: "Stable preset key, e.g. pkg-starter-website." },
+      {
+        name: "category",
+        label: "Category",
+        type: "select",
+        required: true,
+        inList: true,
+        options: [
+          { value: "Package", label: "Package" },
+          { value: "Retainer", label: "Retainer" },
+          { value: "Maintenance", label: "Maintenance" },
+        ],
+      },
+      { name: "description", label: "Description", type: "textarea" },
+      { name: "price_inr", label: "Price — India (INR)", type: "number", min: 0, inList: true },
+      { name: "price_intl", label: "Price — International (USD)", type: "number", min: 0, inList: true },
+      { name: "price_from", label: "Starting price (from)", type: "boolean" },
+      { name: "recurring", label: "Billing cycle", type: "select", required: true, options: RECURRING_OPTIONS_CONFIG, inList: true },
+      { name: "includes", label: "Included scope (JSON)", type: "json", help: 'A list of bullets, e.g. ["Up to 5 pages","Basic SEO"]' },
+      { name: "badge", label: "Badge", type: "text", help: 'e.g. "Most popular".' },
+      { name: "active", label: "Active", type: "boolean", inList: true },
+      { name: "order", label: "Order", type: "number", min: 0 },
     ],
   },
   {

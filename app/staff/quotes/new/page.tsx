@@ -1,20 +1,13 @@
 import { requireTeamMember } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
-import BillingForm, { type PresetItem } from "@/components/admin/billing-form";
+import { getCatalog } from "@/lib/admin/catalog";
+import BillingForm from "@/components/admin/billing-form";
 import { saveStaffQuote } from "../actions";
 
 export default async function NewStaffQuotePage() {
   await requireTeamMember();
 
-  const settings = await getBillingSettings();
-
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("billing_items")
-    .select("id, name, description, unit, unit_price, tax_rate, hsn_sac")
-    .eq("active", true)
-    .order("order", { ascending: true });
+  const [settings, catalog] = await Promise.all([getBillingSettings(), getCatalog()]);
 
   return (
     <div>
@@ -27,7 +20,8 @@ export default async function NewStaffQuotePage() {
       <div className="mt-8">
         <BillingForm
           docType="quote"
-          presets={(data ?? []) as PresetItem[]}
+          presets={catalog.presets}
+          packages={catalog.packages}
           defaults={{
             currency: settings.billing_currency || "INR",
             terms: settings.billing_quote_terms,

@@ -1,5 +1,74 @@
 export type DocType = "quote" | "invoice";
 
+export type Region = "IN" | "INT";
+
+export type Recurring = "one_time" | "monthly" | "yearly";
+
+/** Catalogue categories, in the order they should appear on a quotation. */
+export const BILLING_CATEGORIES = [
+  "Website",
+  "Pages",
+  "UI/UX",
+  "Authentication",
+  "User Management",
+  "Admin Panel",
+  "E-Commerce",
+  "Payments",
+  "Shipping",
+  "Communication",
+  "Google Integrations",
+  "SEO",
+  "GEO / Local SEO",
+  "Performance",
+  "Security",
+  "Hosting",
+  "Deployment",
+  "API Integrations",
+  "Advanced Features",
+  "AI",
+  "Branding",
+  "Content",
+  "Testing",
+  "Training",
+  "Maintenance",
+  "Support",
+  "Infrastructure",
+  "Package",
+  "Retainer",
+  "Other",
+] as const;
+
+export const CATEGORY_OPTIONS = BILLING_CATEGORIES.map((value) => ({ value, label: value }));
+
+export const REGIONS: { value: Region; label: string; currency: string }[] = [
+  { value: "IN", label: "India (INR)", currency: "INR" },
+  { value: "INT", label: "International (USD)", currency: "USD" },
+];
+
+export const RECURRING_OPTIONS: { value: Recurring; label: string; suffix: string }[] = [
+  { value: "one_time", label: "One-time", suffix: "" },
+  { value: "monthly", label: "Monthly", suffix: "/month" },
+  { value: "yearly", label: "Yearly", suffix: "/year" },
+];
+
+export function recurringSuffix(value: string | null | undefined) {
+  return RECURRING_OPTIONS.find((option) => option.value === value)?.suffix ?? "";
+}
+
+export function readRegion(value: unknown): Region {
+  return value === "INT" ? "INT" : "IN";
+}
+
+export function currencyForRegion(region: Region) {
+  return region === "INT" ? "USD" : "INR";
+}
+
+/** Orders categories by the catalogue sequence, unknown ones last. */
+export function categoryRank(category: string | null | undefined) {
+  const index = BILLING_CATEGORIES.indexOf((category ?? "") as (typeof BILLING_CATEGORIES)[number]);
+  return index === -1 ? BILLING_CATEGORIES.length : index;
+}
+
 export const DOC_STATUSES = [
   { value: "draft", label: "Draft" },
   { value: "sent", label: "Sent" },
@@ -25,6 +94,7 @@ export const BILLING_SETTING_GROUPS: {
       { key: "billing_email", label: "Email", type: "text" },
       { key: "billing_phone", label: "Phone", type: "text" },
       { key: "billing_website", label: "Website", type: "text" },
+      { key: "billing_tagline", label: "Tagline", type: "text", help: "Printed under the footer, e.g. Launch your next venture online." },
     ],
   },
   {
@@ -46,6 +116,9 @@ export const BILLING_SETTING_GROUPS: {
       { key: "billing_quote_terms", label: "Default quote terms", type: "textarea" },
       { key: "billing_invoice_terms", label: "Default invoice terms", type: "textarea" },
       { key: "billing_bank_details", label: "Bank / payment details", type: "textarea" },
+      { key: "billing_payment_terms", label: "Default payment schedule", type: "textarea", help: "Printed on quotations, e.g. 40% advance / 60% before deployment." },
+      { key: "billing_support_policy", label: "Post-delivery support policy", type: "textarea" },
+      { key: "billing_third_party_note", label: "Third-party cost note", type: "textarea" },
     ],
   },
   {
@@ -76,6 +149,8 @@ export type BillingSettings = Record<string, string>;
 export interface LineItem {
   name: string;
   description: string | null;
+  category: string | null;
+  recurring: Recurring;
   unit: string | null;
   hsn_sac: string | null;
   quantity: number;
@@ -84,24 +159,58 @@ export interface LineItem {
   line_total: number;
 }
 
+/** Groups line items into the category blocks printed on a quotation. */
+export function groupByCategory<T extends { category: string | null }>(items: T[]) {
+  const groups = new Map<string, T[]>();
+
+  for (const item of items) {
+    const key = item.category?.trim() || "Other";
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(item);
+    else groups.set(key, [item]);
+  }
+
+  return [...groups.entries()]
+    .map(([category, entries]) => ({ category, items: entries }))
+    .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
+}
+
 function round(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export function calculateTotals(items: LineItem[], discountAmount: number) {
-  const subtotal = round(items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0));
+  // Recurring services are quoted separately from the one-off project total.
+  const oneOff = items.filter((item) => item.recurring === "one_time");
+  const subtotal = round(oneOff.reduce((sum, item) => sum + item.quantity * item.unit_price, 0));
   const discount = round(Math.min(Math.max(discountAmount, 0), subtotal));
   // Discount is spread across lines proportionally so tax stays consistent.
   const discountRatio = subtotal > 0 ? discount / subtotal : 0;
 
   const taxAmount = round(
-    items.reduce((sum, item) => {
+    oneOff.reduce((sum, item) => {
       const gross = item.quantity * item.unit_price;
       return sum + gross * (1 - discountRatio) * (item.tax_rate / 100);
     }, 0)
   );
 
   return { subtotal, discount, taxAmount, total: round(subtotal - discount + taxAmount) };
+}
+
+/** Totals per billing cycle for the "recurring services" block. */
+export function recurringTotals(items: LineItem[]) {
+  return RECURRING_OPTIONS.filter((option) => option.value !== "one_time")
+    .map((option) => ({
+      cycle: option.value,
+      suffix: option.suffix,
+      label: option.label,
+      amount: round(
+        items
+          .filter((item) => item.recurring === option.value)
+          .reduce((sum, item) => sum + item.quantity * item.unit_price * (1 + item.tax_rate / 100), 0)
+      ),
+    }))
+    .filter((entry) => entry.amount > 0);
 }
 
 /** Reads `items[n][field]` rows out of the submitted form. */
@@ -124,9 +233,15 @@ export function parseLineItems(formData: FormData): LineItem[] {
       return value || null;
     };
 
+    const recurring = String(formData.get(`items[${index}][recurring]`) ?? "one_time");
+
     items.push({
       name: label,
       description: text("description"),
+      category: text("category"),
+      recurring: (RECURRING_OPTIONS.some((option) => option.value === recurring)
+        ? recurring
+        : "one_time") as Recurring,
       unit: text("unit"),
       hsn_sac: text("hsn_sac"),
       quantity,
@@ -140,14 +255,15 @@ export function parseLineItems(formData: FormData): LineItem[] {
 }
 
 export function formatMoney(value: number, currency: string) {
+  const code = currency || "INR";
   try {
-    return new Intl.NumberFormat("en-IN", {
+    return new Intl.NumberFormat(code === "INR" ? "en-IN" : "en-US", {
       style: "currency",
-      currency: currency || "INR",
+      currency: code,
       maximumFractionDigits: 2,
     }).format(value);
   } catch {
-    return `${currency} ${value.toFixed(2)}`;
+    return `${code} ${value.toFixed(2)}`;
   }
 }
 
