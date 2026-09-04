@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireTeamMember } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog } from "@/lib/admin/catalog";
@@ -8,7 +8,7 @@ import type { LineItem } from "@/lib/admin/billing";
 import { saveStaffQuote } from "../actions";
 
 export default async function EditStaffQuotePage({ params }: { params: { id: string } }) {
-  const profile = await requireTeamMember();
+  const profile = await requireRole("employee");
 
   const supabase = createClient();
   const { data: document } = await supabase

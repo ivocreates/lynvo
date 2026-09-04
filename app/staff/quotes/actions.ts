@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireTeamMember, recordAudit } from "@/lib/auth";
+import { requireRole, recordAudit } from "@/lib/auth";
 import { calculateTotals, currencyForRegion, nextDocumentNumber, parseLineItems, readRegion } from "@/lib/admin/billing";
 import type { BillingState } from "@/app/admin/(dashboard)/billing/actions";
 
@@ -26,12 +26,12 @@ async function buildQuoteNumber() {
   return nextDocumentNumber(prefix, ((existing ?? []) as { number: string }[]).map((row) => row.number));
 }
 
-/** Team members may draft a quote; only editors and above can send one. */
+/** Employees may draft a quote; only editors and above can send one. */
 export async function saveStaffQuote(
   _prev: BillingState,
   formData: FormData
 ): Promise<BillingState> {
-  const profile = await requireTeamMember();
+  const profile = await requireRole("employee");
 
   const id = String(formData.get("__id") ?? "").trim();
   const clientName = String(formData.get("client_name") ?? "").trim();
@@ -108,7 +108,7 @@ export async function saveStaffQuote(
 }
 
 export async function deleteStaffQuote(formData: FormData) {
-  const profile = await requireTeamMember();
+  const profile = await requireRole("employee");
 
   const id = String(formData.get("__id") ?? "").trim();
   if (!id) return;

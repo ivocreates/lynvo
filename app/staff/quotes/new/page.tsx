@@ -1,11 +1,11 @@
-import { requireTeamMember } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog } from "@/lib/admin/catalog";
 import BillingForm from "@/components/admin/billing-form";
 import { saveStaffQuote } from "../actions";
 
 export default async function NewStaffQuotePage() {
-  await requireTeamMember();
+  await requireRole("employee");
 
   const [settings, catalog] = await Promise.all([getBillingSettings(), getCatalog()]);
 

@@ -8,7 +8,7 @@ import { ROLE_RANK, type Role } from "@/lib/roles";
 const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
   { href: "/staff", label: "Overview", icon: LayoutDashboard },
   { href: "/staff/tasks", label: "My tasks", icon: ListChecks },
-  { href: "/staff/quotes", label: "My quotes", icon: ReceiptText },
+  { href: "/staff/quotes", label: "My quotes", icon: ReceiptText, minRole: "employee" },
   { href: "/staff/goals", label: "Goals", icon: Target },
   { href: "/staff/notes", label: "Notes", icon: FileText },
   { href: "/staff/documents", label: "My documents", icon: FolderLock },
