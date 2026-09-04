@@ -8,7 +8,13 @@ import DocumentForm from "@/components/admin/document-form";
 import { applyPlaceholders, type Recipient, type StaffDocument } from "@/lib/documents";
 import { updateDocument, setDocumentStatus, deleteDocument } from "../actions";
 
-export default async function EditDocumentPage({ params }: { params: { id: string } }) {
+export default async function EditDocumentPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { saved?: string; error?: string };
+}) {
   await requireManager();
 
   const supabase = createClient();
@@ -53,15 +59,10 @@ export default async function EditDocumentPage({ params }: { params: { id: strin
         </Link>
 
         {doc.status !== "issued" && (
-          <form action={setDocumentStatus} className="flex flex-wrap items-center gap-3">
+          <form action={setDocumentStatus}>
             <input type="hidden" name="id" value={doc.id} />
             <input type="hidden" name="status" value="issued" />
-            {doc.audience === "individual" && doc.recipient_id && (
-              <label className="flex items-center gap-2 text-sm text-text-primary/75">
-                <input type="checkbox" name="request_signature" className="h-4 w-4 accent-brand-700" />
-                Request recipient signature
-              </label>
-            )}
+            <input type="hidden" name="redirect_to" value={`/admin/documents/${doc.id}`} />
             <button
               type="submit"
               className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
@@ -74,6 +75,7 @@ export default async function EditDocumentPage({ params }: { params: { id: strin
           <form action={setDocumentStatus}>
             <input type="hidden" name="id" value={doc.id} />
             <input type="hidden" name="status" value="archived" />
+            <input type="hidden" name="redirect_to" value={`/admin/documents/${doc.id}`} />
             <button type="submit" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
               Archive
             </button>
@@ -91,6 +93,17 @@ export default async function EditDocumentPage({ params }: { params: { id: strin
           <ConfirmSubmit message="Delete this document permanently?" />
         </form>
       </div>
+
+      {searchParams.saved && (
+        <p className="mb-6 rounded-card border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+          Saved.
+        </p>
+      )}
+      {searchParams.error && (
+        <p className="mb-6 rounded-card border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
+          Could not update this document. Please try again.
+        </p>
+      )}
 
       {doc.acknowledged_at && (
         <p className="mb-6 rounded-card border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">

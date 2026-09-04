@@ -138,6 +138,21 @@ export default function DocumentForm({
               />
             </div>
             <div>
+              <label className="flex items-center gap-2 text-sm text-ink-900">
+                <input
+                  type="checkbox"
+                  name="signature_required"
+                  defaultChecked={doc?.signature_required ?? false}
+                  className="h-4 w-4 accent-brand-700"
+                />
+                Require recipient signature before download
+              </label>
+              <p className="mt-1 text-xs text-text-primary/60">
+                Only applies to documents addressed to one person. The recipient uploads a PNG signature before
+                the document becomes viewable or downloadable.
+              </p>
+            </div>
+            <div>
               <label htmlFor="issue_date" className={LABEL_CLASS}>
                 Issue date
               </label>

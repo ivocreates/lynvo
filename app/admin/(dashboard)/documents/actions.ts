@@ -36,6 +36,10 @@ const schema = z.object({
     .transform((value) => value || new Date().toISOString().slice(0, 10)),
   effective_from: optional(10),
   effective_to: optional(10),
+  signature_required: z
+    .string()
+    .optional()
+    .transform((value) => value === "on"),
 });
 
 function parse(formData: FormData) {
@@ -49,6 +53,7 @@ function parse(formData: FormData) {
     issue_date: formData.get("issue_date") ?? undefined,
     effective_from: formData.get("effective_from") ?? undefined,
     effective_to: formData.get("effective_to") ?? undefined,
+    signature_required: formData.get("signature_required") ?? undefined,
   });
 }
 
@@ -95,22 +100,27 @@ export async function setDocumentStatus(formData: FormData) {
 
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
+  const redirectTo = String(formData.get("redirect_to") ?? `/admin/documents/${id}`);
 
   if (!id || !DOC_STATUSES.includes(status as DocStatus)) return;
 
   const supabase = createClient();
   const updates: Record<string, unknown> = { status };
+  // Re-issuing clears any earlier signature so the recipient must sign the current version.
   if (status === "issued") {
-    updates.signature_required = formData.get("request_signature") === "on";
     updates.recipient_signature_url = null;
     updates.recipient_signed_at = null;
   }
-  await supabase.from("staff_documents").update(updates).eq("id", id);
+  const { error } = await supabase.from("staff_documents").update(updates).eq("id", id);
+
+  if (error) redirect(`${redirectTo}?error=status`);
+
   await recordAudit("status_change", "staff_documents", id, { status });
 
   revalidatePath("/admin/documents");
   revalidatePath(`/admin/documents/${id}`);
   revalidatePath("/staff/documents");
+  redirect(`${redirectTo}?saved=1`);
 }
 
 export async function deleteDocument(formData: FormData) {
@@ -120,11 +130,14 @@ export async function deleteDocument(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
-  await supabase.from("staff_documents").delete().eq("id", id);
+  const { error } = await supabase.from("staff_documents").delete().eq("id", id);
+
+  if (error) redirect(`/admin/documents?error=delete`);
+
   await recordAudit("delete", "staff_documents", id);
 
   revalidatePath("/admin/documents");
-  redirect("/admin/documents");
+  redirect("/admin/documents?deleted=1");
 }
 
 export async function saveDocumentSettings(
