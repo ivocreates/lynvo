@@ -42,6 +42,9 @@ export type StaffDocument = {
   effective_from: string | null;
   effective_to: string | null;
   acknowledged_at: string | null;
+  signature_required: boolean;
+  recipient_signature_url: string | null;
+  recipient_signed_at: string | null;
   created_at: string;
 };
 

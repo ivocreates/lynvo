@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DOC_TYPE_LABELS, type StaffDocument } from "@/lib/documents";
 import { CERTIFICATE_TYPE_LABELS, formatPeriod, type Certificate } from "@/lib/certificates";
 import { acknowledgeDocument } from "./actions";
+import DocumentSignatureUpload from "@/components/staff/document-signature-upload";
 
 export const metadata = { title: "My documents" };
 
@@ -41,16 +42,21 @@ export default async function StaffDocumentsPage() {
             {new Date(`${doc.issue_date}T00:00:00`).toLocaleDateString()}
           </p>
         </div>
-        <Link
-          href={`/admin/print/document/${doc.id}`}
-          className="rounded-card border border-border px-4 py-2 text-sm hover:bg-canvas-warm"
-        >
-          Read &amp; download
-        </Link>
+        {doc.signature_required && !doc.recipient_signed_at ? (
+          <span className="rounded-card border border-warning/40 px-4 py-2 text-sm text-warning">Signature required</span>
+        ) : (
+          <Link
+            href={`/admin/print/document/${doc.id}`}
+            className="rounded-card border border-border px-4 py-2 text-sm hover:bg-canvas-warm"
+          >
+            Read &amp; download
+          </Link>
+        )}
       </div>
 
       {personal && (
         <div className="mt-4 border-t border-border pt-3">
+          {doc.signature_required && !doc.recipient_signed_at && <DocumentSignatureUpload documentId={doc.id} />}
           {doc.acknowledged_at ? (
             <p className="text-xs text-success">
               Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.

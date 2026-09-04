@@ -175,13 +175,20 @@ export default function DocumentLetterhead({
         </div>
         {recipient && doc.audience === "individual" && (
           <div>
-            <div className="h-12" />
+            {doc.recipient_signature_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={doc.recipient_signature_url} alt="Recipient signature" className="h-12 w-auto max-w-56 object-contain" />
+            ) : (
+              <div className="h-12" />
+            )}
             <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
               {recipient.display_name ?? recipient.email}
             </p>
             <p className="text-ink-900/70">
-              {doc.acknowledged_at
-                ? `Acknowledged ${new Date(doc.acknowledged_at).toLocaleDateString("en-IN")}`
+              {doc.recipient_signed_at
+                ? `Signed ${new Date(doc.recipient_signed_at).toLocaleDateString("en-IN")}`
+                : doc.acknowledged_at
+                  ? `Acknowledged ${new Date(doc.acknowledged_at).toLocaleDateString("en-IN")}`
                 : "Recipient signature"}
             </p>
           </div>

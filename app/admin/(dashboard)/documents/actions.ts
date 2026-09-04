@@ -99,7 +99,13 @@ export async function setDocumentStatus(formData: FormData) {
   if (!id || !DOC_STATUSES.includes(status as DocStatus)) return;
 
   const supabase = createClient();
-  await supabase.from("staff_documents").update({ status }).eq("id", id);
+  const updates: Record<string, unknown> = { status };
+  if (status === "issued") {
+    updates.signature_required = formData.get("request_signature") === "on";
+    updates.recipient_signature_url = null;
+    updates.recipient_signed_at = null;
+  }
+  await supabase.from("staff_documents").update(updates).eq("id", id);
   await recordAudit("status_change", "staff_documents", id, { status });
 
   revalidatePath("/admin/documents");
