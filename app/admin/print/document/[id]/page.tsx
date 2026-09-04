@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireTeamMember, hasRole } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PrintButton from "@/components/admin/print-button";
@@ -20,7 +21,7 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
 
-  const [{ data: recipientRow }, settings] = await Promise.all([
+  const [{ data: recipientRow }, authRecipient, settings] = await Promise.all([
     doc.recipient_id
       ? supabase
           .from("profiles")
@@ -28,8 +29,22 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
           .eq("id", doc.recipient_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    doc.recipient_id
+      ? createAdminClient().auth.admin.getUserById(doc.recipient_id)
+      : Promise.resolve({ data: { user: null } }),
     getBillingSettings(),
   ]);
+
+  const recipient = recipientRow
+    ? {
+        ...recipientRow,
+        display_name:
+          recipientRow.display_name ||
+          authRecipient.data.user?.user_metadata?.full_name ||
+          authRecipient.data.user?.user_metadata?.name ||
+          recipientRow.email,
+      }
+    : null;
 
   const backHref = hasRole(profile, "junior_partner") ? `/admin/documents/${doc.id}` : "/staff/documents";
 
@@ -42,7 +57,7 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
         <PrintButton />
       </div>
 
-      <DocumentLetterhead doc={doc} recipient={recipientRow as Recipient | null} settings={settings} />
+      <DocumentLetterhead doc={doc} recipient={recipient as Recipient | null} settings={settings} />
     </div>
   );
 }
