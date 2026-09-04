@@ -31,59 +31,67 @@ export default async function StaffDocumentsPage() {
   const mine = docs.filter((doc) => doc.recipient_id === profile.id);
   const shared = docs.filter((doc) => doc.recipient_id !== profile.id);
 
-  const renderDoc = (doc: StaffDocument, personal: boolean) => (
-    <li key={doc.id} className="rounded-card border border-border bg-surface p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display text-lg font-semibold text-ink-900">{doc.title}</p>
-          <p className="mt-1 text-xs text-text-primary/60">
-            {DOC_TYPE_LABELS[doc.doc_type]}
-            {doc.reference ? ` · ${doc.reference}` : ""} ·{" "}
-            {new Date(`${doc.issue_date}T00:00:00`).toLocaleDateString()}
-          </p>
-        </div>
-        {doc.signature_required && !doc.recipient_signed_at ? (
-          <Link
-            href={`/admin/print/document/${doc.id}`}
-            className="rounded-card border border-warning/40 px-4 py-2 text-sm text-warning hover:bg-warning/10"
-          >
-            Preview (sign to download)
-          </Link>
-        ) : (
-          <Link
-            href={`/admin/print/document/${doc.id}`}
-            className="rounded-card border border-border px-4 py-2 text-sm hover:bg-canvas-warm"
-          >
-            Read &amp; download
-          </Link>
-        )}
-      </div>
+  const renderDoc = (doc: StaffDocument, personal: boolean) => {
+    // Individually addressed documents must be acknowledged; signature is an extra requirement on top.
+    const requiresAck = personal && doc.audience === "individual";
+    const signaturePending = doc.signature_required && !doc.recipient_signed_at;
+    const ackPending = requiresAck && !doc.acknowledged_at;
+    const downloadLocked = signaturePending || ackPending;
 
-      {personal && (
-        <div className="mt-4 border-t border-border pt-3">
-          {doc.signature_required && !doc.recipient_signed_at && <DocumentSignatureUpload documentId={doc.id} />}
-          {doc.acknowledged_at ? (
-            <p className="text-xs text-success">
-              Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
+    return (
+      <li key={doc.id} className="rounded-card border border-border bg-surface p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-display text-lg font-semibold text-ink-900">{doc.title}</p>
+            <p className="mt-1 text-xs text-text-primary/60">
+              {DOC_TYPE_LABELS[doc.doc_type]}
+              {doc.reference ? ` · ${doc.reference}` : ""} ·{" "}
+              {new Date(`${doc.issue_date}T00:00:00`).toLocaleDateString()}
             </p>
-          ) : doc.signature_required && !doc.recipient_signed_at ? (
-            <p className="mt-3 text-xs text-warning">Upload your signature above before you can acknowledge this document.</p>
+          </div>
+          {downloadLocked ? (
+            <Link
+              href={`/admin/print/document/${doc.id}`}
+              className="rounded-card border border-warning/40 px-4 py-2 text-sm text-warning hover:bg-warning/10"
+            >
+              {signaturePending ? "Preview (sign to download)" : "Preview (acknowledge to download)"}
+            </Link>
           ) : (
-            <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
-              <input type="hidden" name="id" value={doc.id} />
-              <button
-                type="submit"
-                className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
-              >
-                I have read and accept this
-              </button>
-              <span className="text-xs text-text-primary/60">Please read the document before acknowledging.</span>
-            </form>
+            <Link
+              href={`/admin/print/document/${doc.id}`}
+              className="rounded-card border border-border px-4 py-2 text-sm hover:bg-canvas-warm"
+            >
+              Read &amp; download
+            </Link>
           )}
         </div>
-      )}
-    </li>
-  );
+
+        {personal && (
+          <div className="mt-4 border-t border-border pt-3">
+            {signaturePending && <DocumentSignatureUpload documentId={doc.id} />}
+            {doc.acknowledged_at ? (
+              <p className="text-xs text-success">
+                Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
+              </p>
+            ) : signaturePending ? (
+              <p className="mt-3 text-xs text-warning">Upload your signature above before you can acknowledge this document.</p>
+            ) : (
+              <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="id" value={doc.id} />
+                <button
+                  type="submit"
+                  className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
+                >
+                  I have read and accept this
+                </button>
+                <span className="text-xs text-text-primary/60">Please read the document before acknowledging.</span>
+              </form>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  };
 
   return (
     <div>

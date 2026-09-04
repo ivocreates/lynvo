@@ -20,7 +20,14 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
 
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
-  const locked = doc.status !== "draft" && doc.signature_required && !doc.recipient_signed_at;
+  // Individually addressed documents must be acknowledged; signature is an extra requirement on top.
+  const requiresAck = doc.audience === "individual" && !!doc.recipient_id;
+  const signaturePending = doc.signature_required && !doc.recipient_signed_at;
+  const ackPending = requiresAck && !doc.acknowledged_at;
+  const locked = doc.status !== "draft" && (signaturePending || ackPending);
+  const lockReason = signaturePending
+    ? "Download locked until the recipient signs and acknowledges"
+    : "Download locked until the recipient acknowledges";
 
   const [{ data: recipientRow }, authRecipient, settings] = await Promise.all([
     doc.recipient_id
@@ -57,20 +64,22 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
         </Link>
         {locked ? (
           <span className="rounded-card border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-warning">
-            Download locked until the recipient signs
+            {lockReason}
           </span>
         ) : (
           <PrintButton />
         )}
       </div>
 
-      {/* Anyone with access can preview; the printed output is swapped out below until signed. */}
+      {/* Anyone with access can preview; the printed output is swapped out below until signed and acknowledged. */}
       <div className={locked ? "print:hidden" : undefined}>
         <DocumentLetterhead doc={doc} recipient={recipient as Recipient | null} settings={settings} />
       </div>
       {locked && (
         <div className="hidden min-h-screen items-center justify-center bg-white p-10 text-center print:flex">
-          <p className="text-sm">This document cannot be printed until the recipient uploads their signature.</p>
+          <p className="text-sm">
+            This document cannot be printed until the recipient signs and acknowledges it.
+          </p>
         </div>
       )}
     </div>
