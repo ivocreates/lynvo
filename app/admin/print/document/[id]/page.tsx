@@ -20,23 +20,7 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
 
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
-
-  if (doc.status !== "draft" && doc.signature_required && !doc.recipient_signed_at) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas-warm p-6">
-        <div className="max-w-lg rounded-card border border-warning/40 bg-surface p-8 text-center">
-          <p className="section-stamp">SIGNATURE REQUIRED</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold text-ink-900">Document not yet verified</h1>
-          <p className="mt-3 text-sm leading-6 text-text-primary/75">
-            The recipient must upload their PNG signature before this document can be viewed or downloaded.
-          </p>
-          <Link href={hasRole(profile, "junior_partner") ? `/admin/documents/${doc.id}` : "/staff/documents"} className="mt-6 inline-block text-sm text-brand-700 underline">
-            Back
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const locked = doc.status !== "draft" && doc.signature_required && !doc.recipient_signed_at;
 
   const [{ data: recipientRow }, authRecipient, settings] = await Promise.all([
     doc.recipient_id
@@ -71,10 +55,24 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
         <Link href={backHref} className="text-sm text-brand-700 underline">
           Back
         </Link>
-        <PrintButton />
+        {locked ? (
+          <span className="rounded-card border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-warning">
+            Download locked until the recipient signs
+          </span>
+        ) : (
+          <PrintButton />
+        )}
       </div>
 
-      <DocumentLetterhead doc={doc} recipient={recipient as Recipient | null} settings={settings} />
+      {/* Anyone with access can preview; the printed output is swapped out below until signed. */}
+      <div className={locked ? "print:hidden" : undefined}>
+        <DocumentLetterhead doc={doc} recipient={recipient as Recipient | null} settings={settings} />
+      </div>
+      {locked && (
+        <div className="hidden min-h-screen items-center justify-center bg-white p-10 text-center print:flex">
+          <p className="text-sm">This document cannot be printed until the recipient uploads their signature.</p>
+        </div>
+      )}
     </div>
   );
 }

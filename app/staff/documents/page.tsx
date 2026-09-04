@@ -43,7 +43,12 @@ export default async function StaffDocumentsPage() {
           </p>
         </div>
         {doc.signature_required && !doc.recipient_signed_at ? (
-          <span className="rounded-card border border-warning/40 px-4 py-2 text-sm text-warning">Signature required</span>
+          <Link
+            href={`/admin/print/document/${doc.id}`}
+            className="rounded-card border border-warning/40 px-4 py-2 text-sm text-warning hover:bg-warning/10"
+          >
+            Preview (sign to download)
+          </Link>
         ) : (
           <Link
             href={`/admin/print/document/${doc.id}`}
@@ -61,6 +66,8 @@ export default async function StaffDocumentsPage() {
             <p className="text-xs text-success">
               Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
             </p>
+          ) : doc.signature_required && !doc.recipient_signed_at ? (
+            <p className="mt-3 text-xs text-warning">Upload your signature above before you can acknowledge this document.</p>
           ) : (
             <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="id" value={doc.id} />

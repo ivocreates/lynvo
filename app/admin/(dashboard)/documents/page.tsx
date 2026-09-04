@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getBillingSettings } from "@/lib/admin/billing-settings";
-import { HR_DOCUMENT_SETTING_GROUPS } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
-import BillingSettingsForm from "@/components/admin/billing-settings-form";
 import {
   DOC_TYPES,
   DOC_STATUSES,
@@ -17,7 +14,7 @@ import {
   type DocType,
   type StaffDocument,
 } from "@/lib/documents";
-import { saveDocumentSettings, deleteDocument } from "./actions";
+import { deleteDocument } from "./actions";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-border/50 text-text-primary/70",
@@ -63,20 +60,32 @@ export default async function DocumentsPage({
   if (signature) base.set("signature", signature);
 
   const supabase = createClient();
+  const peopleQuery = supabase.from("profiles").select("id, display_name, email");
+
+  // Recipient names live on profiles, so a name/email search needs a matching id list first.
+  let recipientIds: string[] = [];
+  if (q) {
+    const { data: matches } = await supabase
+      .from("profiles")
+      .select("id")
+      .or(`display_name.ilike.%${q}%,email.ilike.%${q}%`);
+    recipientIds = ((matches ?? []) as { id: string }[]).map((row) => row.id);
+  }
+
   let query = supabase.from("staff_documents").select("*").order("created_at", { ascending: false }).limit(200);
 
-  if (q) query = query.or(`title.ilike.%${q}%,reference.ilike.%${q}%`);
+  if (q) {
+    const orParts = [`title.ilike.%${q}%`, `reference.ilike.%${q}%`];
+    if (recipientIds.length > 0) orParts.push(`recipient_id.in.(${recipientIds.join(",")})`);
+    query = query.or(orParts.join(","));
+  }
   if (status && DOC_STATUSES.includes(status as DocStatus)) query = query.eq("status", status);
   if (docType && DOC_TYPES.includes(docType as DocType)) query = query.eq("doc_type", docType);
   if (audience && DOC_AUDIENCES.includes(audience as DocAudience)) query = query.eq("audience", audience);
   if (signature === "pending") query = query.eq("signature_required", true).is("recipient_signed_at", null);
   if (signature === "signed") query = query.eq("signature_required", true).not("recipient_signed_at", "is", null);
 
-  const [{ data: docRows }, { data: peopleRows }, settings] = await Promise.all([
-    query,
-    supabase.from("profiles").select("id, display_name, email"),
-    getBillingSettings(),
-  ]);
+  const [{ data: docRows }, { data: peopleRows }] = await Promise.all([query, peopleQuery]);
 
   const docs = (docRows ?? []) as StaffDocument[];
   const people = (peopleRows ?? []) as Record<string, any>[];
@@ -106,9 +115,9 @@ export default async function DocumentsPage({
         >
           New document
         </Link>
-        <a href="#document-formatting" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
+        <Link href="/admin/documents/settings" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
           Formatting &amp; partners
-        </a>
+        </Link>
       </div>
 
       {searchParams.deleted && (
@@ -131,7 +140,7 @@ export default async function DocumentsPage({
           type="text"
           name="q"
           defaultValue={q ?? ""}
-          placeholder="Search title or reference..."
+          placeholder="Search title, reference, or recipient..."
           className="w-full max-w-xs rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
         />
         <button type="submit" className="rounded-card border border-border px-3 py-2 text-sm hover:bg-surface">
@@ -246,20 +255,6 @@ export default async function DocumentsPage({
           ))}
         </ul>
       )}
-
-      <section id="document-formatting" className="mt-8 border-t border-border pt-8">
-        <PageHeader
-          stamp="FORMAT"
-          title="Document formatting"
-          description="HR document footer text, stamp, and first/second designated partner signatures."
-        />
-        <BillingSettingsForm
-          values={settings}
-          groups={HR_DOCUMENT_SETTING_GROUPS}
-          action={saveDocumentSettings}
-          submitLabel="Save document formatting"
-        />
-      </section>
     </div>
   );
 }

@@ -16,12 +16,14 @@ export async function acknowledgeDocument(formData: FormData) {
   if (!id) return;
 
   const supabase = createClient();
-  // The trigger reverts every other column for non-managers.
+  // The trigger reverts every other column for non-managers; the .or() blocks
+  // acknowledgement server-side until a required signature has been uploaded.
   await supabase
     .from("staff_documents")
     .update({ acknowledged_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("recipient_id", profile.id);
+    .eq("recipient_id", profile.id)
+    .or("signature_required.eq.false,recipient_signed_at.not.is.null");
 
   revalidatePath("/staff/documents");
 }
