@@ -20,14 +20,14 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
 
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
-  // Individually addressed documents must be acknowledged; signature is an extra requirement on top.
-  const requiresAck = doc.audience === "individual" && !!doc.recipient_id;
+  // Individually addressed documents must be acknowledged; signature is required if marked or pending.
+  const requiresAck = !!doc.recipient_id;
   const signaturePending = doc.signature_required && !doc.recipient_signed_at;
   const ackPending = requiresAck && !doc.acknowledged_at;
   const locked = doc.status !== "draft" && (signaturePending || ackPending);
   const lockReason = signaturePending
-    ? "Download locked until the recipient signs and acknowledges"
-    : "Download locked until the recipient acknowledges";
+    ? "Download & print locked until the recipient signs and acknowledges"
+    : "Download & print locked until the recipient acknowledges";
 
   const [{ data: recipientRow }, authRecipient, settings] = await Promise.all([
     doc.recipient_id
@@ -38,7 +38,13 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
           .maybeSingle()
       : Promise.resolve({ data: null }),
     doc.recipient_id
-      ? createAdminClient().auth.admin.getUserById(doc.recipient_id)
+      ? (async () => {
+          try {
+            return await createAdminClient().auth.admin.getUserById(doc.recipient_id!);
+          } catch {
+            return { data: { user: null } };
+          }
+        })()
       : Promise.resolve({ data: { user: null } }),
     getBillingSettings(),
   ]);
@@ -48,8 +54,8 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
         ...recipientRow,
         display_name:
           recipientRow.display_name ||
-          authRecipient.data.user?.user_metadata?.full_name ||
-          authRecipient.data.user?.user_metadata?.name ||
+          authRecipient?.data?.user?.user_metadata?.full_name ||
+          authRecipient?.data?.user?.user_metadata?.name ||
           recipientRow.email,
       }
     : null;

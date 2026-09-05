@@ -46,15 +46,14 @@ export async function uploadDocumentSignature(formData: FormData): Promise<Docum
   const supabase = createClient();
   const { data: document } = await supabase
     .from("staff_documents")
-    .select("id")
+    .select("id, acknowledged_at")
     .eq("id", id)
     .eq("recipient_id", profile.id)
     .eq("status", "issued")
-    .eq("signature_required", true)
-    .is("recipient_signed_at", null)
     .maybeSingle();
 
   if (!document) return { ok: false, message: "This document is not awaiting your signature." };
+  if (document.acknowledged_at) return { ok: false, message: "This document has already been acknowledged." };
 
   const path = `recipient-signatures/${profile.id}/${id}/${crypto.randomUUID()}.png`;
   const { error: uploadError } = await supabase.storage
@@ -78,5 +77,5 @@ export async function uploadDocumentSignature(formData: FormData): Promise<Docum
   revalidatePath("/staff/documents");
   revalidatePath(`/admin/documents/${id}`);
   revalidatePath(`/admin/print/document/${id}`);
-  return { ok: true, message: "Signature uploaded. The document is now available." };
+  return { ok: true, message: "Signature saved. You can now acknowledge and download the document." };
 }

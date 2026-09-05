@@ -105,12 +105,12 @@ export default function DocumentLetterhead({
         </div>
       </header>
 
-      {recipient && (
+      {(recipient || doc.recipient_id) && (
         <section className="mt-6">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-900/60">To</p>
-          <p className="mt-1 font-semibold">{recipient.display_name ?? recipient.email}</p>
-          {recipient.title && <p className="text-[12px] text-ink-900/75">{recipient.title}</p>}
-          <p className="text-[12px] text-ink-900/75">{recipient.email}</p>
+          <p className="mt-1 font-semibold">{recipient?.display_name ?? recipient?.email ?? "Recipient"}</p>
+          {recipient?.title && <p className="text-[12px] text-ink-900/75">{recipient.title}</p>}
+          {recipient?.email && <p className="text-[12px] text-ink-900/75">{recipient.email}</p>}
         </section>
       )}
 
@@ -173,16 +173,20 @@ export default function DocumentLetterhead({
             </div>
           ))}
         </div>
-        {recipient && doc.audience === "individual" && (
+        {(recipient || doc.recipient_id || doc.recipient_signature_url) && (
           <div>
             {doc.recipient_signature_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={doc.recipient_signature_url} alt="Recipient signature" className="h-12 w-auto max-w-56 object-contain" />
+              <img
+                src={doc.recipient_signature_url}
+                alt="Recipient signature"
+                className="mb-1 h-14 w-auto max-w-[220px] object-contain"
+              />
             ) : (
-              <div className="h-12" />
+              <div className="h-14" />
             )}
             <p className="w-56 border-t border-ink-900/40 pt-1 font-semibold">
-              {recipient.display_name ?? recipient.email}
+              {recipient?.display_name ?? recipient?.email ?? "Recipient"}
             </p>
             <p className="text-ink-900/70">
               {doc.recipient_signed_at

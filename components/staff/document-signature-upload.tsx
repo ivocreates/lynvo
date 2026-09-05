@@ -1,17 +1,19 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { uploadDocumentSignature } from "@/app/staff/documents/actions";
 
 const PAD_WIDTH = 480;
 const PAD_HEIGHT = 160;
 
 export default function DocumentSignatureUpload({ documentId }: { documentId: string }) {
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const hasDrawnRef = useRef(false);
-  const [mode, setMode] = useState<"upload" | "draw">("draw");
+  const [mode, setMode] = useState<"draw" | "upload">("draw");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -24,6 +26,9 @@ export default function DocumentSignatureUpload({ documentId }: { documentId: st
     startTransition(async () => {
       const result = await uploadDocumentSignature(formData);
       setMessage(result.message);
+      if (result.ok) {
+        router.refresh();
+      }
     });
   }
 

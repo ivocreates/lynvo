@@ -32,8 +32,8 @@ export default async function StaffDocumentsPage() {
   const shared = docs.filter((doc) => doc.recipient_id !== profile.id);
 
   const renderDoc = (doc: StaffDocument, personal: boolean) => {
-    // Individually addressed documents must be acknowledged; signature is an extra requirement on top.
-    const requiresAck = personal && doc.audience === "individual";
+    // Individually addressed documents must be acknowledged; signature is required if marked or pending.
+    const requiresAck = personal;
     const signaturePending = doc.signature_required && !doc.recipient_signed_at;
     const ackPending = requiresAck && !doc.acknowledged_at;
     const downloadLocked = signaturePending || ackPending;
@@ -68,25 +68,51 @@ export default async function StaffDocumentsPage() {
 
         {personal && (
           <div className="mt-4 border-t border-border pt-3">
-            {signaturePending && <DocumentSignatureUpload documentId={doc.id} />}
-            {doc.acknowledged_at ? (
-              <p className="text-xs text-success">
-                Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
-              </p>
-            ) : signaturePending ? (
-              <p className="mt-3 text-xs text-warning">Upload your signature above before you can acknowledge this document.</p>
-            ) : (
-              <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
-                <input type="hidden" name="id" value={doc.id} />
-                <button
-                  type="submit"
-                  className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
-                >
-                  I have read and accept this
-                </button>
-                <span className="text-xs text-text-primary/60">Please read the document before acknowledging.</span>
-              </form>
+            {doc.recipient_signature_url && (
+              <div className="mb-3 flex flex-wrap items-center gap-4 rounded-card border border-border bg-canvas-warm p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={doc.recipient_signature_url}
+                  alt="Your signature"
+                  className="h-10 w-auto max-w-[160px] object-contain"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-success">
+                    Signature recorded {doc.recipient_signed_at ? `on ${new Date(doc.recipient_signed_at).toLocaleDateString()}` : ""}.
+                  </p>
+                  <p className="text-[11px] text-text-primary/60">
+                    {doc.acknowledged_at
+                      ? "Document finalized and acknowledged."
+                      : "You can draw or upload a new signature below to replace it before acknowledging."}
+                  </p>
+                </div>
+              </div>
             )}
+            {!doc.acknowledged_at && (
+              <DocumentSignatureUpload documentId={doc.id} />
+            )}
+            <div className="mt-4 border-t border-border pt-3">
+              {doc.acknowledged_at ? (
+                <p className="text-xs text-success">
+                  Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
+                </p>
+              ) : signaturePending ? (
+                <p className="text-xs text-warning">
+                  Please sign the document above before you can acknowledge and download it.
+                </p>
+              ) : (
+                <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
+                  <input type="hidden" name="id" value={doc.id} />
+                  <button
+                    type="submit"
+                    className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
+                  >
+                    I have read and accept this
+                  </button>
+                  <span className="text-xs text-text-primary/60">Please read the document before acknowledging.</span>
+                </form>
+              )}
+            </div>
           </div>
         )}
       </li>
