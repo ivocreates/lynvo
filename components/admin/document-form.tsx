@@ -65,6 +65,10 @@ export default function DocumentForm({
             <code># </code> heading · <code>## </code> subheading · <code>- </code> bullet · <code>1. </code>{" "}
             numbered · blank line for a new paragraph. Text is rendered as text, never as HTML.
           </p>
+          <p className="mt-1 text-xs text-text-primary/60">
+            A line with <code>---</code> on its own starts a new page. Long documents also flow onto extra A4
+            pages automatically when printed.
+          </p>
         </div>
 
         <button

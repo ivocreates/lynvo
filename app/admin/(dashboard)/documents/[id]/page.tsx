@@ -101,7 +101,9 @@ export default async function EditDocumentPage({
       )}
       {searchParams.error && (
         <p className="mb-6 rounded-card border border-error/40 bg-error/10 px-4 py-3 text-sm text-error">
-          Could not update this document. Please try again.
+          {searchParams.error === "status"
+            ? "Could not update this document. Please try again."
+            : searchParams.error}
         </p>
       )}
 

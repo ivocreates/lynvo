@@ -64,6 +64,8 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
 
   return (
     <div className="min-h-screen bg-canvas-warm py-8 print:bg-white print:py-0">
+      {/* Multi-page documents flow across A4 sheets with a consistent margin. */}
+      <style>{"@page { size: A4; margin: 16mm 14mm; }"}</style>
       <div className="mx-auto mb-6 flex max-w-[210mm] items-center justify-between gap-4 px-4 print:hidden">
         <Link href={backHref} className="text-sm text-brand-700 underline">
           Back

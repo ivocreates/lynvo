@@ -49,7 +49,7 @@ export default function DocumentLetterhead({
 
   return (
     <article className="mx-auto max-w-[210mm] bg-white p-10 text-[13px] leading-relaxed text-ink-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
-      <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-ink-900 pb-5">
+      <header className="flex flex-wrap items-start justify-between gap-6 break-inside-avoid border-b-2 border-ink-900 pb-5">
         <div>
           {settings.billing_logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -119,15 +119,26 @@ export default function DocumentLetterhead({
       <section className="mt-4 space-y-3">
         {blocks.map((block, index) => {
           switch (block.kind) {
+            case "pagebreak":
+              return (
+                <div
+                  key={index}
+                  aria-hidden
+                  className="break-after-page my-8 border-t border-dashed border-ink-900/25 print:my-0 print:border-0"
+                />
+              );
             case "heading":
               return (
-                <h2 key={index} className="mt-5 font-display text-base font-semibold">
+                <h2 key={index} className="mt-5 break-after-avoid font-display text-base font-semibold">
                   {block.text}
                 </h2>
               );
             case "subheading":
               return (
-                <h3 key={index} className="mt-4 text-[13px] font-semibold uppercase tracking-wide text-ink-900/80">
+                <h3
+                  key={index}
+                  className="mt-4 break-after-avoid text-[13px] font-semibold uppercase tracking-wide text-ink-900/80"
+                >
                   {block.text}
                 </h3>
               );
@@ -135,7 +146,9 @@ export default function DocumentLetterhead({
               return (
                 <ul key={index} className="list-disc space-y-1 pl-5">
                   {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>{item}</li>
+                    <li key={itemIndex} className="break-inside-avoid">
+                      {item}
+                    </li>
                   ))}
                 </ul>
               );
@@ -143,13 +156,15 @@ export default function DocumentLetterhead({
               return (
                 <ol key={index} className="list-decimal space-y-1 pl-5">
                   {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>{item}</li>
+                    <li key={itemIndex} className="break-inside-avoid">
+                      {item}
+                    </li>
                   ))}
                 </ol>
               );
             default:
               return (
-                <p key={index} className="text-justify">
+                <p key={index} className="break-inside-avoid text-justify">
                   {block.text}
                 </p>
               );
@@ -157,7 +172,7 @@ export default function DocumentLetterhead({
         })}
       </section>
 
-      <section className="mt-12 flex flex-wrap justify-between gap-10 text-[12px]">
+      <section className="mt-12 flex flex-wrap justify-between gap-10 break-inside-avoid text-[12px]">
         <div className="flex flex-wrap gap-6">
           {signatures.map((signature) => (
             <div key={`${signature.name}-${signature.title}`}>
@@ -203,7 +218,7 @@ export default function DocumentLetterhead({
         )}
       </section>
 
-      <footer className="mt-10 border-t-2 border-ink-900 pt-3 text-center text-[11px] text-ink-900/70">
+      <footer className="mt-10 break-inside-avoid border-t-2 border-ink-900 pt-3 text-center text-[11px] text-ink-900/70">
         <p className="whitespace-pre-line">{settings.doc_footer_note}</p>
         <p className="mt-1">
           {[settings.billing_legal_name, settings.billing_website].filter(Boolean).join("  ·  ")}

@@ -57,25 +57,60 @@ function parse(formData: FormData) {
   });
 }
 
+/** References carry a unique index; bump the trailing number so a clash still saves. */
+function bumpReference(reference: string | null, attempt: number) {
+  if (!reference) return null;
+  const match = reference.match(/^(.*?)(\d+)$/);
+  if (!match) return `${reference}-${attempt + 1}`;
+  const [, prefix, digits] = match;
+  return `${prefix}${String(Number(digits) + attempt).padStart(digits.length, "0")}`;
+}
+
+function failure(target: string, message: string): never {
+  redirect(`${target}${target.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`);
+}
+
 export async function createDocument(formData: FormData) {
   const actor = await requireManager();
 
   const parsed = parse(formData);
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    failure("/admin/documents/new", `${issue.path.join(".") || "Form"}: ${issue.message}`);
+  }
 
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("staff_documents")
-    .insert({ ...parsed.data, created_by: actor.id })
-    .select("id")
-    .maybeSingle();
+  const values = parsed.data;
+  let created: { id: string } | null = null;
+  let message = "Could not create the document.";
 
-  if (error || !data) return;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data, error } = await supabase
+      .from("staff_documents")
+      .insert({
+        ...values,
+        reference: attempt === 0 ? values.reference : bumpReference(values.reference, attempt),
+        created_by: actor.id,
+      })
+      .select("id")
+      .maybeSingle();
 
-  await recordAudit("create", "staff_documents", data.id, { title: parsed.data.title });
+    if (data) {
+      created = data as { id: string };
+      break;
+    }
+
+    message = error?.message ?? message;
+    // 23505 = the reference already exists; anything else will not resolve by retrying.
+    if (error?.code !== "23505" || !values.reference) break;
+  }
+
+  if (!created) failure("/admin/documents/new", message);
+
+  await recordAudit("create", "staff_documents", created.id, { title: values.title });
 
   revalidatePath("/admin/documents");
-  redirect(`/admin/documents/${data.id}`);
+  redirect(`/admin/documents/${created.id}?saved=1`);
 }
 
 export async function updateDocument(formData: FormData) {
@@ -85,14 +120,21 @@ export async function updateDocument(formData: FormData) {
   if (!id) return;
 
   const parsed = parse(formData);
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    failure(`/admin/documents/${id}`, `${issue.path.join(".") || "Form"}: ${issue.message}`);
+  }
 
   const supabase = createClient();
-  await supabase.from("staff_documents").update(parsed.data).eq("id", id);
+  const { error } = await supabase.from("staff_documents").update(parsed.data).eq("id", id);
+
+  if (error) failure(`/admin/documents/${id}`, error.message);
+
   await recordAudit("update", "staff_documents", id);
 
   revalidatePath(`/admin/documents/${id}`);
   revalidatePath("/staff/documents");
+  redirect(`/admin/documents/${id}?saved=1`);
 }
 
 export async function setDocumentStatus(formData: FormData) {

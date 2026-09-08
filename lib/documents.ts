@@ -113,7 +113,12 @@ export type DocBlock =
   | { kind: "subheading"; text: string }
   | { kind: "list"; items: string[] }
   | { kind: "ordered"; items: string[] }
+  | { kind: "pagebreak" }
   | { kind: "paragraph"; text: string };
+
+/** Marker an author types on its own line to start a new printed page. */
+export const PAGE_BREAK_MARKER = "---";
+const PAGE_BREAK_PATTERN = /^(-{3,}|={3,}|\[\[\s*page(?:\s*break)?\s*\]\])$/i;
 
 /**
  * Parses the pasted body into blocks. Text is never treated as HTML, so an
@@ -136,6 +141,12 @@ export function parseDocumentBody(body: string): DocBlock[] {
 
     if (!line) {
       flush();
+      continue;
+    }
+
+    if (PAGE_BREAK_PATTERN.test(line)) {
+      flush();
+      blocks.push({ kind: "pagebreak" });
       continue;
     }
 

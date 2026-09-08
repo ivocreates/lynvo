@@ -64,6 +64,9 @@ export default async function ClientReportPage({ params }: { params: { id: strin
                 </ol>
               );
             default:
+              if (block.kind === "pagebreak") {
+                return <hr key={index} aria-hidden className="my-6 border-border" />;
+              }
               return (
                 <p key={index} className="leading-7 text-text-primary/80">
                   {block.text}
