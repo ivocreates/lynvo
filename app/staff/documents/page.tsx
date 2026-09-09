@@ -37,6 +37,7 @@ export default async function StaffDocumentsPage() {
     const signaturePending = doc.signature_required && !doc.recipient_signed_at;
     const ackPending = requiresAck && !doc.acknowledged_at;
     const downloadLocked = signaturePending || ackPending;
+    const canAcknowledge = !signaturePending;
 
     return (
       <li key={doc.id} className="rounded-card border border-border bg-surface p-5">
@@ -96,20 +97,21 @@ export default async function StaffDocumentsPage() {
                 <p className="text-xs text-success">
                   Acknowledged on {new Date(doc.acknowledged_at).toLocaleDateString()}.
                 </p>
-              ) : signaturePending ? (
-                <p className="text-xs text-warning">
-                  Please sign the document above before you can acknowledge and download it.
-                </p>
               ) : (
                 <form action={acknowledgeDocument} className="flex flex-wrap items-center gap-3">
                   <input type="hidden" name="id" value={doc.id} />
                   <button
                     type="submit"
-                    className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
+                    disabled={!canAcknowledge}
+                    className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     I have read and accept this
                   </button>
-                  <span className="text-xs text-text-primary/60">Please read the document before acknowledging.</span>
+                  <span className={signaturePending ? "text-xs text-warning" : "text-xs text-text-primary/60"}>
+                    {signaturePending
+                      ? "Sign the document above to enable acknowledgement and download."
+                      : "Please read the document before acknowledging."}
+                  </span>
                 </form>
               )}
             </div>
