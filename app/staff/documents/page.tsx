@@ -89,7 +89,7 @@ export default async function StaffDocumentsPage() {
                 </div>
               </div>
             )}
-            {!doc.acknowledged_at && (
+            {doc.signature_required && !doc.acknowledged_at && (
               <DocumentSignatureUpload documentId={doc.id} />
             )}
             <div className="mt-4 border-t border-border pt-3">
