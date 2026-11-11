@@ -76,8 +76,8 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/billing", label: "Quotes & invoices", icon: ReceiptText, permission: "billing.manage" },
       { href: "/admin/billing/payments", label: "Payments", icon: Wallet, permission: "billing.manage" },
       { href: "/admin/billing/subscriptions", label: "Maintenance & retainers", icon: Repeat, permission: "billing.manage" },
-      { href: "/admin/billing-items", label: "Service catalog", icon: Package, permission: "billing.manage" },
-      { href: "/admin/billing-packages", label: "Package presets", icon: Layers, permission: "billing.manage" },
+      { href: "/admin/billing/catalog", label: "Catalog & packages", icon: Package, permission: "billing.manage" },
+      { href: "/admin/billing/offers", label: "Offers & promo codes", icon: Layers, permission: "billing.manage" },
     ],
   },
   {

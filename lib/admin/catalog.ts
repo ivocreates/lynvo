@@ -2,12 +2,14 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import type { PackagePreset, PresetItem } from "@/components/admin/billing-form";
+import type { Offer } from "@/lib/admin/billing";
 
 const ITEM_COLUMNS =
   "id, name, description, category, unit, unit_price, unit_price_intl, price_from, recurring, tax_rate, hsn_sac";
 
 const PACKAGE_COLUMNS =
   "id, name, description, category, price_inr, price_intl, price_from, recurring, includes, badge";
+const PACKAGE_COLUMNS_WITH_COMPARE = `${PACKAGE_COLUMNS}, compare_inr, compare_intl`;
 
 function toNumber(value: unknown) {
   return Number(value ?? 0) || 0;
@@ -17,10 +19,21 @@ function toNumber(value: unknown) {
 export async function getCatalog() {
   const supabase = createClient();
 
-  const [{ data: itemRows }, { data: packageRows }] = await Promise.all([
+  const [{ data: itemRows }, packagesWithCompare, { data: offerRows }] = await Promise.all([
     supabase.from("billing_items").select(ITEM_COLUMNS).eq("active", true).order("order", { ascending: true }),
-    supabase.from("billing_packages").select(PACKAGE_COLUMNS).eq("active", true).order("order", { ascending: true }),
+    supabase.from("billing_packages").select(PACKAGE_COLUMNS_WITH_COMPARE).eq("active", true).order("order", { ascending: true }),
+    supabase.from("billing_offers").select("*").eq("active", true).order("code"),
   ]);
+
+  // compare_* and billing_offers arrive with migration 0032.
+  let packageRows = packagesWithCompare.data as Record<string, unknown>[] | null;
+  if (packagesWithCompare.error) {
+    ({ data: packageRows } = await supabase
+      .from("billing_packages")
+      .select(PACKAGE_COLUMNS)
+      .eq("active", true)
+      .order("order", { ascending: true }));
+  }
 
   const presets: PresetItem[] = ((itemRows ?? []) as Record<string, unknown>[]).map((row) => ({
     id: String(row.id),
@@ -47,9 +60,26 @@ export async function getCatalog() {
     recurring: (row.recurring as PackagePreset["recurring"]) ?? "one_time",
     includes: Array.isArray(row.includes) ? (row.includes as string[]) : [],
     badge: (row.badge as string) ?? null,
+    compare_inr: row.compare_inr == null ? null : toNumber(row.compare_inr),
+    compare_intl: row.compare_intl == null ? null : toNumber(row.compare_intl),
   }));
 
-  return { presets, packages };
+  const offers: Offer[] = ((offerRows ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id),
+    code: String(row.code),
+    title: String(row.title),
+    description: (row.description as string) ?? null,
+    kind: row.kind === "flat" ? "flat" : "percent",
+    value: toNumber(row.value),
+    categories: Array.isArray(row.categories) ? (row.categories as string[]) : [],
+    min_subtotal: toNumber(row.min_subtotal),
+    region: row.region === "IN" || row.region === "INT" ? row.region : "all",
+    valid_from: (row.valid_from as string) ?? null,
+    valid_until: (row.valid_until as string) ?? null,
+    active: Boolean(row.active),
+  }));
+
+  return { presets, packages, offers };
 }
 
 /** Client accounts a document can be addressed to; details pre-fill the Bill-to block. */

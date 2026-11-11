@@ -556,3 +556,59 @@ export function nextDocumentNumber(prefix: string, existing: string[], date = ne
 
   return `${base}/${String(highest + 1).padStart(4, "0")}`;
 }
+
+// ---------------------------------------------------------------------------
+// Offers & discounts
+// ---------------------------------------------------------------------------
+
+export interface Offer {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  kind: "percent" | "flat";
+  value: number;
+  categories: string[];
+  min_subtotal: number;
+  region: "all" | Region;
+  valid_from: string | null;
+  valid_until: string | null;
+  active: boolean;
+}
+
+export type OfferCheck = { ok: true; discount: number; base: number } | { ok: false; reason: string };
+
+/**
+ * Works out what an offer is worth on a set of lines. Percent offers apply to
+ * the one-time lines in the offer's categories (or all one-time lines); flat
+ * offers never exceed that base.
+ */
+export function evaluateOffer(offer: Offer, items: LineItem[], region: Region, today = todayIso()): OfferCheck {
+  if (!offer.active) return { ok: false, reason: "This offer is switched off." };
+  if (offer.valid_from && today < offer.valid_from) return { ok: false, reason: `Starts on ${offer.valid_from}.` };
+  if (offer.valid_until && today > offer.valid_until) return { ok: false, reason: `Expired on ${offer.valid_until}.` };
+  if (offer.region !== "all" && offer.region !== region) {
+    return { ok: false, reason: offer.region === "IN" ? "India pricing only." : "International pricing only." };
+  }
+
+  const oneOff = items.filter((item) => item.recurring === "one_time");
+  const subtotal = oneOff.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  if (subtotal < Number(offer.min_subtotal)) {
+    return { ok: false, reason: `Needs a subtotal of at least ${formatMoney(Number(offer.min_subtotal), region === "INT" ? "USD" : "INR")}.` };
+  }
+
+  const scoped = offer.categories.length
+    ? oneOff.filter((item) => offer.categories.includes(item.category ?? ""))
+    : oneOff;
+  const base = round(scoped.reduce((sum, item) => sum + item.quantity * item.unit_price, 0));
+  if (base <= 0) return { ok: false, reason: `Add an item from ${offer.categories.join(", ")} to use this offer.` };
+
+  const discount = offer.kind === "percent" ? round((base * Number(offer.value)) / 100) : Math.min(base, Number(offer.value));
+  return { ok: true, discount: round(discount), base };
+}
+
+/** Savings shown on package cards: "worth ₹X — save Y%". */
+export function packageSavings(price: number, compare: number | null | undefined) {
+  if (!compare || compare <= price) return null;
+  return { amount: round(compare - price), percent: Math.round(((compare - price) / compare) * 100) };
+}

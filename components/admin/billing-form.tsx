@@ -14,14 +14,17 @@ import {
   REGIONS,
   calculateTotals,
   currencyForRegion,
+  evaluateOffer,
   formatMoney,
   recurringTotals,
   type DocType,
   type LineItem,
+  type Offer,
   type Recurring,
   type Region,
 } from "@/lib/admin/billing";
 import SubmitButton from "./submit-button";
+import CatalogPicker from "./catalog-picker";
 
 export interface PresetItem {
   id: string;
@@ -48,6 +51,8 @@ export interface PackagePreset {
   recurring: Recurring;
   includes: string[] | null;
   badge: string | null;
+  compare_inr?: number | null;
+  compare_intl?: number | null;
 }
 
 export interface ClientOption {
@@ -79,6 +84,8 @@ export interface DocumentRecord {
   region: Region | null;
   client_id: string | null;
   discount_amount: number;
+  discount_percent?: number | null;
+  offer_code?: string | null;
   notes: string | null;
   terms: string | null;
 }
@@ -139,6 +146,7 @@ export default function BillingForm({
   items,
   presets,
   packages = [],
+  offers = [],
   clients = [],
   defaults,
   action = saveDocument,
@@ -151,6 +159,7 @@ export default function BillingForm({
   items?: LineItem[];
   presets: PresetItem[];
   packages?: PackagePreset[];
+  offers?: Offer[];
   clients?: ClientOption[];
   defaults: { currency: string; terms: string };
   action?: (state: BillingState, formData: FormData) => Promise<BillingState>;
@@ -177,6 +186,9 @@ export default function BillingForm({
   });
 
   const [discount, setDiscount] = useState(String(document?.discount_amount ?? 0));
+  const [discountMode, setDiscountMode] = useState<"percent" | "flat">(document?.discount_percent ? "percent" : "flat");
+  const [discountPercent, setDiscountPercent] = useState(String(document?.discount_percent ?? 0));
+  const [offerCode, setOfferCode] = useState(document?.offer_code ?? "");
   const [region, setRegion] = useState<Region>(document?.region ?? "IN");
   const [currency, setCurrency] = useState(document?.currency || defaults.currency || "INR");
   const [billTo, setBillTo] = useState<BillTo>(() => {
@@ -190,18 +202,6 @@ export default function BillingForm({
       address: document?.client_address ?? preset?.address ?? "",
     };
   });
-  const [search, setSearch] = useState("");
-
-  const searchResults = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (term.length < 2) return [];
-    return presets
-      .filter((preset) =>
-        `${preset.name} ${preset.category ?? ""} ${preset.description ?? ""}`.toLowerCase().includes(term)
-      )
-      .slice(0, 12);
-  }, [presets, search]);
-
   function pickClient(id: string) {
     const client = clients.find((entry) => entry.id === id);
     if (!client) {
@@ -223,19 +223,25 @@ export default function BillingForm({
   const statusOptions = DOC_STATUSES.filter((status) => MANUAL_STATUSES[docType].includes(status.value));
 
   const lineItems = useMemo(() => rows.map(toLineItem), [rows]);
-  const totals = useMemo(() => calculateTotals(lineItems, Number(discount) || 0), [lineItems, discount]);
+  const oneOffSubtotal = useMemo(
+    () => lineItems.filter((item) => item.recurring === "one_time").reduce((sum, item) => sum + item.quantity * item.unit_price, 0),
+    [lineItems]
+  );
+  const activeOffer = offers.find((offer) => offer.code === offerCode) ?? null;
+  const offerCheck = activeOffer ? evaluateOffer(activeOffer, lineItems, region) : null;
+  const effectiveDiscount =
+    offerCheck && offerCheck.ok
+      ? offerCheck.discount
+      : discountMode === "percent"
+        ? Math.round(oneOffSubtotal * (Math.min(100, Math.max(0, Number(discountPercent) || 0)) / 100) * 100) / 100
+        : Number(discount) || 0;
+  const totals = useMemo(() => calculateTotals(lineItems, effectiveDiscount), [lineItems, effectiveDiscount]);
+  const addedNames = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of rows) if (row.name.trim()) map.set(row.name, (map.get(row.name) ?? 0) + (Number(row.quantity) || 0));
+    return map;
+  }, [rows]);
   const recurring = useMemo(() => recurringTotals(lineItems), [lineItems]);
-
-  const presetGroups = useMemo(() => {
-    const groups = new Map<string, PresetItem[]>();
-    for (const preset of presets) {
-      const key = preset.category?.trim() || "Other";
-      const bucket = groups.get(key);
-      if (bucket) bucket.push(preset);
-      else groups.set(key, [preset]);
-    }
-    return [...groups.entries()];
-  }, [presets]);
 
   function updateRow(key: string, patch: Partial<Row>) {
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -259,6 +265,12 @@ export default function BillingForm({
     if (!preset) return;
 
     const price = region === "INT" ? preset.unit_price_intl : preset.unit_price;
+
+    const existing = rows.find((row) => row.name === preset.name && row.unit_price === String(price));
+    if (existing) {
+      updateRow(existing.key, { quantity: String((Number(existing.quantity) || 0) + 1) });
+      return;
+    }
 
     appendRow({
       ...emptyRow(),
@@ -505,109 +517,16 @@ export default function BillingForm({
       <section className="rounded-card border border-border bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-semibold text-ink-900">Line items</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {packages.length > 0 && (
-              <>
-                <label htmlFor="package-picker" className="text-sm text-text-primary/70">
-                  Add package
-                </label>
-                <select
-                  id="package-picker"
-                  value=""
-                  onChange={(event) => {
-                    addPackage(event.target.value);
-                    event.target.value = "";
-                  }}
-                  className="rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
-                >
-                  <option value="">Select a preset...</option>
-                  {packages.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name} —{" "}
-                      {formatMoney(
-                        region === "INT" ? preset.price_intl : preset.price_inr,
-                        currencyForRegion(region)
-                      )}
-                      {preset.price_from ? "+" : ""}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-            <label htmlFor="preset-picker" className="text-sm text-text-primary/70">
-              Add service
-            </label>
-            <select
-              id="preset-picker"
-              value=""
-              onChange={(event) => {
-                addPreset(event.target.value);
-                event.target.value = "";
-              }}
-              className="rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none"
-            >
-              <option value="">Select an item...</option>
-              {presetGroups.map(([category, entries]) => (
-                <optgroup key={category} label={category}>
-                  {entries.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name} —{" "}
-                      {formatMoney(
-                        region === "INT" ? preset.unit_price_intl : preset.unit_price,
-                        currencyForRegion(region)
-                      )}
-                      {preset.price_from ? "+" : ""}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
         </div>
 
-        <div className="relative mt-4">
-          <label htmlFor="catalog-search" className="sr-only">
-            Search the catalog
-          </label>
-          <input
-            id="catalog-search"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search the catalog: logo, letterhead, business card, SEO, hosting..."
-            className={inputClass}
-            autoComplete="off"
-          />
-          {searchResults.length > 0 && (
-            <ul className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-card border border-border bg-surface shadow-lg">
-              {searchResults.map((preset) => (
-                <li key={preset.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      addPreset(preset.id);
-                      setSearch("");
-                    }}
-                    className="flex w-full items-start justify-between gap-4 px-3 py-2 text-left text-sm hover:bg-canvas-warm"
-                  >
-                    <span>
-                      <span className="font-medium text-ink-900">{preset.name}</span>
-                      <span className="block text-xs text-text-primary/60">
-                        {preset.category}
-                        {preset.description ? ` · ${preset.description}` : ""}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-ink-900">
-                      {formatMoney(region === "INT" ? preset.unit_price_intl : preset.unit_price, currencyForRegion(region))}
-                      {preset.price_from ? "+" : ""}
-                      {preset.recurring === "monthly" ? "/mo" : preset.recurring === "yearly" ? "/yr" : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <CatalogPicker
+          presets={presets}
+          packages={packages}
+          region={region}
+          added={addedNames}
+          onAddItem={addPreset}
+          onAddPackage={addPackage}
+        />
 
         {presets.length === 0 && (
           <p className="mt-3 text-sm text-text-primary/70">
@@ -811,20 +730,79 @@ export default function BillingForm({
             />
           </div>
           <div>
-            <label htmlFor="discount_amount" className="block text-sm font-medium text-ink-900">
-              Discount amount
-            </label>
-            <input
-              id="discount_amount"
-              name="discount_amount"
-              type="number"
-              step="0.01"
-              min="0"
-              value={discount}
-              onChange={(event) => setDiscount(event.target.value)}
-              className={inputClass}
-            />
+            <span className="block text-sm font-medium text-ink-900">Discount</span>
+            <input type="hidden" name="discount_amount" value={effectiveDiscount} />
+            <input type="hidden" name="discount_percent" value={!activeOffer && discountMode === "percent" ? discountPercent : activeOffer?.kind === "percent" ? String(activeOffer.value) : ""} />
+            <input type="hidden" name="offer_code" value={offerCheck && offerCheck.ok ? offerCode : ""} />
+            <div className="mt-1 flex gap-2">
+              <div className="flex rounded-card border border-border bg-surface p-0.5 text-sm" role="group" aria-label="Discount type">
+                {(["percent", "flat"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={Boolean(activeOffer)}
+                    onClick={() => setDiscountMode(mode)}
+                    className={`rounded-card px-3 py-1 disabled:opacity-40 ${discountMode === mode ? "bg-ink-900 text-text-inverse" : "text-ink-900"}`}
+                  >
+                    {mode === "percent" ? "%" : currency}
+                  </button>
+                ))}
+              </div>
+              {discountMode === "percent" ? (
+                <input
+                  aria-label="Discount percent"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  disabled={Boolean(activeOffer)}
+                  value={discountPercent}
+                  onChange={(event) => setDiscountPercent(event.target.value)}
+                  className={`${inputClass} mt-0 disabled:opacity-40`}
+                />
+              ) : (
+                <input
+                  aria-label="Discount amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  disabled={Boolean(activeOffer)}
+                  value={discount}
+                  onChange={(event) => setDiscount(event.target.value)}
+                  className={`${inputClass} mt-0 disabled:opacity-40`}
+                />
+              )}
+            </div>
+            {discountMode === "percent" && !activeOffer && Number(discountPercent) > 0 && (
+              <p className="mt-1 text-xs text-text-primary/60">= {formatMoney(effectiveDiscount, currency)} off the one-time items</p>
+            )}
           </div>
+          {offers.length > 0 && (
+            <div className="sm:col-span-2">
+              <label htmlFor="offer" className="block text-sm font-medium text-ink-900">
+                Offer / promo code
+              </label>
+              <select id="offer" value={offerCode} onChange={(event) => setOfferCode(event.target.value)} className={inputClass}>
+                <option value="">No offer</option>
+                {offers.map((offer) => {
+                  const check = evaluateOffer(offer, lineItems, region);
+                  return (
+                    <option key={offer.id} value={offer.code}>
+                      {offer.code} — {offer.title} ({offer.kind === "percent" ? `${offer.value}%` : formatMoney(offer.value, currency)})
+                      {check.ok ? ` · saves ${formatMoney(check.discount, currency)}` : " · not applicable"}
+                    </option>
+                  );
+                })}
+              </select>
+              {activeOffer && offerCheck && (
+                <p className={`mt-1 text-xs ${offerCheck.ok ? "text-success" : "text-error"}`}>
+                  {offerCheck.ok
+                    ? `${activeOffer.description ?? activeOffer.title} — ${formatMoney(offerCheck.discount, currency)} off. Replaces the manual discount.`
+                    : `Not applicable: ${offerCheck.reason}`}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <dl className="mt-5 space-y-2 border-t border-border pt-4 text-sm">
@@ -833,7 +811,10 @@ export default function BillingForm({
             <dd className="text-ink-900">{formatMoney(totals.subtotal, currency)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-text-primary/70">Discount</dt>
+            <dt className="text-text-primary/70">
+              Discount
+              {offerCheck && offerCheck.ok ? ` (${offerCode})` : discountMode === "percent" && Number(discountPercent) > 0 ? ` (${discountPercent}%)` : ""}
+            </dt>
             <dd className="text-ink-900">−{formatMoney(totals.discount, currency)}</dd>
           </div>
           <div className="flex justify-between">

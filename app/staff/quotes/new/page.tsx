@@ -23,6 +23,7 @@ export default async function NewStaffQuotePage() {
           docType="quote"
           presets={catalog.presets}
           packages={catalog.packages}
+        offers={catalog.offers}
           defaults={{
             currency: settings.billing_currency || "INR",
             terms: settings.billing_quote_terms,

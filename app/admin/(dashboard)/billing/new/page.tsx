@@ -32,6 +32,7 @@ export default async function NewBillingDocumentPage({
         docType={docType}
         presets={catalog.presets}
         packages={catalog.packages}
+        offers={catalog.offers}
         clients={clients}
         initialClientId={searchParams.client}
         defaults={{

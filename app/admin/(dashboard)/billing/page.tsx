@@ -145,8 +145,11 @@ export default async function BillingListPage({
         <Link href="/admin/billing/subscriptions" className={BUTTON}>
           Maintenance & retainers
         </Link>
-        <Link href="/admin/billing-items" className={BUTTON}>
-          Service catalog
+        <Link href="/admin/billing/catalog" className={BUTTON}>
+          Catalog &amp; packages
+        </Link>
+        <Link href="/admin/billing/offers" className={BUTTON}>
+          Offers
         </Link>
         {isAdmin && (
           <Link href="/admin/billing/settings" className={BUTTON}>

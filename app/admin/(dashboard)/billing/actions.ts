@@ -125,6 +125,11 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     notes: text("notes"),
     terms: text("terms"),
   };
+  const percentInput = Number(formData.get("discount_percent") ?? "");
+  const discountMeta = {
+    discount_percent: Number.isFinite(percentInput) && percentInput > 0 ? Math.min(100, percentInput) : null,
+    offer_code: text("offer_code"),
+  };
 
   let documentId = id;
 
@@ -140,10 +145,10 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
       !MANUAL_STATUSES[docType].includes(requestedStatus) ||
       (current && ["paid", "partially_paid"].includes((current as { status: string }).status) && requestedStatus !== "cancelled");
 
-    const { error } = await supabase
-      .from("billing_documents")
-      .update(keepStatus ? values : { ...values, status: requestedStatus })
-      .eq("id", id);
+    const update = keepStatus ? values : { ...values, status: requestedStatus };
+    let { error } = await supabase.from("billing_documents").update({ ...update, ...discountMeta }).eq("id", id);
+    // discount_percent / offer_code arrive with migration 0032.
+    if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await supabase.from("billing_documents").update(update).eq("id", id));
     if (error) return { ok: false, message: friendlyError(error.message) };
 
     await supabase.from("billing_document_items").delete().eq("document_id", documentId);
@@ -167,6 +172,9 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     );
     if ("error" in result) return { ok: false, message: result.error };
     documentId = result.id;
+    if (discountMeta.discount_percent || discountMeta.offer_code) {
+      await supabase.from("billing_documents").update(discountMeta).eq("id", documentId);
+    }
   }
 
   await recordAudit(id ? "update" : "create", "billing_documents", documentId, { docType });
