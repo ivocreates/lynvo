@@ -2,7 +2,7 @@
 
 import { ROLE_RANK, type Role } from "@/lib/roles";
 
-export type Permission = "billing.manage" | "billing.draft" | "clients.manage" | "crm" | "website";
+export type Permission = "billing.manage" | "billing.draft" | "clients.manage" | "crm" | "website" | "accounts";
 
 export const PERMISSIONS: { key: Permission; label: string; description: string }[] = [
   {
@@ -24,6 +24,11 @@ export const PERMISSIONS: { key: Permission; label: string; description: string 
     key: "crm",
     label: "Marketing & sales",
     description: "Lead pipeline, cold calls, research notes and follow-ups.",
+  },
+  {
+    key: "accounts",
+    label: "Accounts & tax",
+    description: "Income and expense ledger, profit & loss, GST and TDS summaries, tax estimates and compliance dates.",
   },
   {
     key: "website",

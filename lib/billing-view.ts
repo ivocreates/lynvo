@@ -67,7 +67,7 @@ export async function loadReceipt(paymentId: string) {
   const supabase = createClient();
   const { data } = await supabase
     .from("billing_payments")
-    .select("id, amount, currency, paid_on, method, reference, client_id, billing_documents(id, number, total, amount_paid, balance_due, client_name, client_address)")
+    .select("*, billing_documents(id, number, total, amount_paid, balance_due, client_name, client_address)")
     .eq("id", paymentId)
     .maybeSingle();
 
@@ -75,6 +75,7 @@ export async function loadReceipt(paymentId: string) {
   const row = data as unknown as {
     id: string;
     amount: number;
+    tds_amount?: number | null;
     currency: string;
     paid_on: string;
     method: string;
@@ -98,6 +99,7 @@ export async function loadReceipt(paymentId: string) {
     receipt: {
       id: row.id,
       amount: Number(row.amount),
+      tds_amount: Number(row.tds_amount ?? 0),
       currency: row.currency,
       paid_on: row.paid_on,
       method: row.method,

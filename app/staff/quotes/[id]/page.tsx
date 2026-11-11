@@ -44,6 +44,7 @@ export default async function EditStaffQuotePage({ params }: { params: { id: str
           items={(itemRows ?? []) as LineItem[]}
           presets={catalog.presets}
           packages={catalog.packages}
+        offers={catalog.offers}
           defaults={{
             currency: settings.billing_currency || "INR",
             terms: settings.billing_quote_terms,

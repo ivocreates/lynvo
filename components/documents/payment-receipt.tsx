@@ -5,6 +5,7 @@ import logoMark from "@/assets/logo/Horizontal Logo/Light/Horizontal Logo Light 
 export type ReceiptData = {
   id: string;
   amount: number;
+  tds_amount?: number;
   currency: string;
   paid_on: string;
   method: string;
@@ -68,6 +69,12 @@ export default function PaymentReceipt({ receipt, settings }: { receipt: Receipt
             <dt className="text-ink-900/65">This payment</dt>
             <dd>{formatMoney(Number(receipt.amount), receipt.currency)}</dd>
           </div>
+          {Number(receipt.tds_amount ?? 0) > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-ink-900/65">TDS deducted by client</dt>
+              <dd>{formatMoney(Number(receipt.tds_amount), receipt.currency)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt className="text-ink-900/65">Total paid to date</dt>
             <dd>{formatMoney(Number(receipt.invoice.amount_paid), receipt.currency)}</dd>

@@ -33,6 +33,8 @@ export type BillingDocumentRecord = {
   amount_paid?: number | null;
   balance_due?: number | null;
   invoice_kind?: keyof typeof INVOICE_KIND_LABELS | null;
+  discount_percent?: number | null;
+  offer_code?: string | null;
 };
 
 export type BillingPaymentLine = { paid_on: string; amount: number; method: string; reference: string | null };
@@ -223,7 +225,10 @@ export default function BillingDocument({
           </div>
           {Number(doc.discount_amount) > 0 && (
             <div className="flex justify-between">
-              <dt className="text-ink-900/65">Discount</dt>
+              <dt className="text-ink-900/65">
+                Discount
+                {doc.offer_code ? ` (${doc.offer_code})` : doc.discount_percent ? ` (${Number(doc.discount_percent)}%)` : ""}
+              </dt>
               <dd>−{formatMoney(Number(doc.discount_amount), currency)}</dd>
             </div>
           )}

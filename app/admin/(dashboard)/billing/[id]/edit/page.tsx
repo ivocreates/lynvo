@@ -58,6 +58,7 @@ export default async function EditBillingDocumentPage({ params }: { params: { id
         items={items}
         presets={catalog.presets}
         packages={catalog.packages}
+        offers={catalog.offers}
         clients={clients}
         defaults={{
           currency: settings.billing_currency || "INR",

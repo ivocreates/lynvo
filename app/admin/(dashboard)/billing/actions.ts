@@ -55,6 +55,12 @@ function back(formData: FormData, fallback: string) {
   return target.startsWith("/admin/") ? target : fallback;
 }
 
+/** Money from a form field, rounded to paise; blank or invalid is zero. */
+function cents(value: FormDataEntryValue | null) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) && number > 0 ? Math.round(number * 100) / 100 : 0;
+}
+
 function withFlag(path: string, flag: string) {
   return `${path}${path.includes("?") ? "&" : "?"}${flag}`;
 }
@@ -125,6 +131,11 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     notes: text("notes"),
     terms: text("terms"),
   };
+  const percentInput = Number(formData.get("discount_percent") ?? "");
+  const discountMeta = {
+    discount_percent: Number.isFinite(percentInput) && percentInput > 0 ? Math.min(100, percentInput) : null,
+    offer_code: text("offer_code"),
+  };
 
   let documentId = id;
 
@@ -140,10 +151,10 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
       !MANUAL_STATUSES[docType].includes(requestedStatus) ||
       (current && ["paid", "partially_paid"].includes((current as { status: string }).status) && requestedStatus !== "cancelled");
 
-    const { error } = await supabase
-      .from("billing_documents")
-      .update(keepStatus ? values : { ...values, status: requestedStatus })
-      .eq("id", id);
+    const update = keepStatus ? values : { ...values, status: requestedStatus };
+    let { error } = await supabase.from("billing_documents").update({ ...update, ...discountMeta }).eq("id", id);
+    // discount_percent / offer_code arrive with migration 0032.
+    if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await supabase.from("billing_documents").update(update).eq("id", id));
     if (error) return { ok: false, message: friendlyError(error.message) };
 
     await supabase.from("billing_document_items").delete().eq("document_id", documentId);
@@ -167,6 +178,9 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     );
     if ("error" in result) return { ok: false, message: result.error };
     documentId = result.id;
+    if (discountMeta.discount_percent || discountMeta.offer_code) {
+      await supabase.from("billing_documents").update(discountMeta).eq("id", documentId);
+    }
   }
 
   await recordAudit(id ? "update" : "create", "billing_documents", documentId, { docType });
@@ -431,10 +445,11 @@ export async function recordPayment(formData: FormData) {
 
   const balance = Math.round((Number(invoice.total) - Number(invoice.amount_paid)) * 100) / 100;
   const fullBalance = formData.get("full_balance") === "on";
-  const amount = fullBalance ? balance : Math.round((Number(formData.get("amount") ?? 0) || 0) * 100) / 100;
+  const tds = fullBalance ? 0 : cents(formData.get("tds_amount"));
+  const amount = fullBalance ? balance : cents(formData.get("amount"));
 
-  if (!(amount > 0)) redirect(withFlag(target, `error=${encodeURIComponent("Enter the amount received.")}`));
-  if (amount > balance + 0.01) {
+  if (!(amount + tds > 0)) redirect(withFlag(target, `error=${encodeURIComponent("Enter the amount received.")}`));
+  if (amount + tds > balance + 0.01) {
     redirect(withFlag(target, `error=${encodeURIComponent("That is more than the balance due on this invoice.")}`));
   }
 
@@ -446,25 +461,189 @@ export async function recordPayment(formData: FormData) {
     await supabase.from("billing_documents").update({ status: "sent" }).eq("id", documentId);
   }
 
-  const { data: payment, error } = await supabase
+  const row = {
+    document_id: documentId,
+    amount,
+    paid_on: text("paid_on") ?? todayIso(),
+    method: PAYMENT_METHODS.some((entry) => entry.value === method) ? method : "other",
+    reference: text("reference"),
+    notes: text("notes"),
+    recorded_by: profile.id,
+  };
+  let { data: payment, error } = await supabase
     .from("billing_payments")
-    .insert({
-      document_id: documentId,
-      amount,
-      paid_on: text("paid_on") ?? todayIso(),
-      method: PAYMENT_METHODS.some((entry) => entry.value === method) ? method : "other",
-      reference: text("reference"),
-      notes: text("notes"),
-      recorded_by: profile.id,
-    })
+    .insert((tds > 0 ? { ...row, tds_amount: tds } : row) as Record<string, unknown>)
     .select("id")
     .maybeSingle();
+  // tds_amount arrives with migration 0033.
+  if (error && tds > 0 && (error.code === "42703" || error.code === "PGRST204")) {
+    redirect(withFlag(target, `error=${encodeURIComponent("TDS needs migration 0033. Record the amount received without TDS for now.")}`));
+  }
 
   if (error || !payment) redirect(withFlag(target, `error=${encodeURIComponent("Could not record the payment.")}`));
 
   await recordAudit("payment", "billing_documents", documentId, { amount, method });
   revalidateBilling(documentId, invoice.client_id);
   redirect(withFlag(target, "paid=1"));
+}
+
+/** Fixes a payment recorded with the wrong date, amount, method or reference. */
+export async function updatePayment(formData: FormData) {
+  await requirePermission("billing.manage");
+
+  const id = String(formData.get("payment_id") ?? "").trim();
+  const target = back(formData, "/admin/billing/payments");
+  if (!UUID.test(id)) return;
+
+  const supabase = createClient();
+  const { data: current } = await supabase.from("billing_payments").select("*").eq("id", id).maybeSingle();
+  if (!current) redirect(withFlag(target, "error=missing"));
+  const payment = current as { document_id: string; client_id: string | null; amount: number; tds_amount?: number };
+
+  const { data: doc } = await supabase.from("billing_documents").select("total, amount_paid").eq("id", payment.document_id).maybeSingle();
+  const invoice = doc as { total: number; amount_paid: number } | null;
+
+  const amount = cents(formData.get("amount"));
+  const tds = cents(formData.get("tds_amount"));
+  const paidOn = String(formData.get("paid_on") ?? "");
+  const method = String(formData.get("method") ?? "bank_transfer");
+
+  if (!(amount + tds > 0)) redirect(withFlag(target, `error=${encodeURIComponent("Enter the amount received.")}`));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) redirect(withFlag(target, `error=${encodeURIComponent("Enter a valid date.")}`));
+  if (invoice) {
+    // Everything else already paid on the invoice, plus this payment's new value.
+    const others = Number(invoice.amount_paid) - Number(payment.amount) - Number(payment.tds_amount ?? 0);
+    if (others + amount + tds > Number(invoice.total) + 0.01) {
+      redirect(withFlag(target, `error=${encodeURIComponent("That would be more than the invoice total.")}`));
+    }
+  }
+
+  const values: Record<string, unknown> = {
+    amount,
+    paid_on: paidOn,
+    method: PAYMENT_METHODS.some((entry) => entry.value === method) ? method : "other",
+    reference: String(formData.get("reference") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  };
+  if ("tds_amount" in (current as object)) values.tds_amount = tds;
+
+  const { error } = await supabase.from("billing_payments").update(values).eq("id", id);
+  if (error) redirect(withFlag(target, `error=${encodeURIComponent("Could not update the payment.")}`));
+
+  await recordAudit("payment_update", "billing_payments", id, { amount, paid_on: paidOn });
+  revalidateBilling(payment.document_id, payment.client_id);
+  revalidatePath("/admin/accounts");
+  redirect(withFlag(target, "saved=1"));
+}
+
+/**
+ * The client paid an advance against a quote: raise the advance invoice for
+ * exactly that amount and record the payment in one step.
+ */
+export async function recordAdvance(formData: FormData) {
+  const profile = await requirePermission("billing.manage");
+
+  const quoteId = String(formData.get("quote_id") ?? "").trim();
+  const fail = (message: string): never => redirect(`/admin/billing/${quoteId}?error=${encodeURIComponent(message)}`);
+  if (!UUID.test(quoteId)) return;
+
+  const amount = cents(formData.get("amount"));
+  const tds = cents(formData.get("tds_amount"));
+  const paidOn = String(formData.get("paid_on") ?? "") || todayIso();
+  const method = String(formData.get("method") ?? "bank_transfer");
+  if (!(amount + tds > 0)) fail("Enter the advance amount received.");
+
+  const supabase = createClient();
+  const [{ data: quoteRow }, { data: itemRows }, { data: priorRows }] = await Promise.all([
+    supabase.from("billing_documents").select("*").eq("id", quoteId).eq("doc_type", "quote").maybeSingle(),
+    supabase.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", quoteId).order("position"),
+    supabase.from("billing_documents").select("total, status").eq("source_quote_id", quoteId).eq("doc_type", "invoice"),
+  ]);
+  if (!quoteRow) fail("Quote not found.");
+  const quote = quoteRow as Record<string, any>;
+
+  const alreadyInvoiced = ((priorRows ?? []) as { total: number; status: string }[])
+    .filter((row) => row.status !== "cancelled")
+    .reduce((sum, row) => sum + Number(row.total), 0);
+
+  const built = buildInvoiceFromQuote({
+    quote: {
+      number: quote.number,
+      subtotal: Number(quote.subtotal),
+      discount_amount: Number(quote.discount_amount),
+      tax_amount: Number(quote.tax_amount),
+      total: Number(quote.total),
+      currency: quote.currency,
+    },
+    items: normaliseItems(itemRows),
+    mode: "amount",
+    value: amount + tds,
+    alreadyInvoiced,
+  });
+  if (!built.ok) fail(built.message);
+  const conversion = built as Extract<typeof built, { ok: true }>;
+
+  const clientId =
+    quote.client_id ??
+    (await ensureClientAccount(
+      supabase,
+      { name: quote.client_name, email: quote.client_email, phone: quote.client_phone, address: quote.client_address, gstin: quote.client_gstin, region: readRegion(quote.region) },
+      profile.id
+    ));
+
+  const result = await insertDocument(
+    supabase,
+    {
+      doc_type: "invoice",
+      status: "sent",
+      issue_date: paidOn,
+      due_date: paidOn,
+      client_id: clientId,
+      client_name: quote.client_name,
+      client_email: quote.client_email,
+      client_phone: quote.client_phone,
+      client_address: quote.client_address,
+      client_gstin: quote.client_gstin,
+      region: readRegion(quote.region),
+      currency: quote.currency,
+      discount: 0,
+      notes: `${conversion.summary} — received on ${paidOn}`,
+      terms: quote.terms,
+      invoice_kind: conversion.kind,
+      source_quote_id: quoteId,
+      engagement_id: quote.engagement_id,
+    },
+    conversion.items,
+    profile.id
+  );
+  if ("error" in result) fail(result.error);
+  const invoice = result as { id: string; number: string };
+
+  // Rounding to the quote's tax rate can move the total by a few paise; settle exactly.
+  const { data: created } = await supabase.from("billing_documents").select("total").eq("id", invoice.id).maybeSingle();
+  const invoiceTotal = Number((created as { total: number } | null)?.total ?? amount + tds);
+  const received = Math.min(amount, Math.max(0, invoiceTotal - tds));
+
+  const payment = {
+    document_id: invoice.id,
+    amount: received,
+    paid_on: paidOn,
+    method: PAYMENT_METHODS.some((entry) => entry.value === method) ? method : "other",
+    reference: String(formData.get("reference") ?? "").trim() || null,
+    notes: "Advance received",
+    recorded_by: profile.id,
+  };
+  const { error: paymentError } = await supabase.from("billing_payments").insert((tds > 0 ? { ...payment, tds_amount: tds } : payment) as Record<string, unknown>);
+  if (paymentError) fail(`Invoice ${invoice.number} was created but the payment could not be recorded. Record it on the invoice.`);
+
+  const quoteUpdates: Record<string, unknown> = {};
+  if (["draft", "sent"].includes(quote.status)) quoteUpdates.status = "accepted";
+  if (!quote.client_id && clientId) quoteUpdates.client_id = clientId;
+  if (Object.keys(quoteUpdates).length) await supabase.from("billing_documents").update(quoteUpdates).eq("id", quoteId);
+
+  await recordAudit("advance", "billing_documents", invoice.id, { quote: quoteId, amount: received, tds });
+  revalidateBilling(quoteId, clientId);
+  redirect(`/admin/billing/${invoice.id}?paid=1`);
 }
 
 export async function deletePayment(formData: FormData) {
