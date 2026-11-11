@@ -18,10 +18,12 @@ import Flash, { errorText } from "@/components/admin/flash";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import SubmitButton from "@/components/admin/submit-button";
 import ConvertQuoteForm from "@/components/admin/convert-quote-form";
+import PaymentEditForm from "@/components/admin/payment-edit-form";
 import {
   deleteDocument,
   deletePayment,
   duplicateDocument,
+  recordAdvance,
   recordPayment,
   setDocumentStatus,
 } from "../actions";
@@ -57,7 +59,7 @@ type Doc = {
 
 type Linked = { id: string; number: string; status: string; total: number; balance_due: number | null; invoice_kind: InvoiceKind | null; issue_date: string; due_date: string | null; doc_type: string };
 
-type Payment = { id: string; amount: number; paid_on: string; method: string; reference: string | null; notes: string | null };
+type Payment = { id: string; amount: number; tds_amount?: number | null; paid_on: string; method: string; reference: string | null; notes: string | null };
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -100,7 +102,7 @@ export default async function BillingDocumentHub({
         .order("issue_date"),
       isQuote
         ? Promise.resolve({ data: [] })
-        : supabase.from("billing_payments").select("id, amount, paid_on, method, reference, notes").eq("document_id", doc.id).order("paid_on"),
+        : supabase.from("billing_payments").select("*").eq("document_id", doc.id).order("paid_on"),
       doc.source_quote_id
         ? supabase.from("billing_documents").select("id, number, total, currency").eq("id", doc.source_quote_id).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -222,6 +224,48 @@ export default async function BillingDocumentHub({
             </section>
           )}
 
+          {isQuote && doc.status !== "cancelled" && total - invoicedFromQuote > 0.01 && (
+            <section className="rounded-card border border-border bg-surface p-5">
+              <h2 className="font-display text-lg font-semibold text-ink-900">Advance already received?</h2>
+              <p className="mt-1 text-sm text-text-primary/70">
+                Enter what the client paid — any amount, no percentage needed. This creates the advance invoice for that amount and
+                records it as paid.
+              </p>
+              <form action={recordAdvance} className="mt-4 grid gap-4 sm:grid-cols-3">
+                <input type="hidden" name="quote_id" value={doc.id} />
+                <label className="text-sm font-medium text-ink-900">
+                  Amount received ({doc.currency})
+                  <input name="amount" type="number" step="0.01" min="0" max={total - invoicedFromQuote} required className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-ink-900">
+                  TDS deducted
+                  <input name="tds_amount" type="number" step="0.01" min="0" defaultValue={0} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-ink-900">
+                  Received on
+                  <input name="paid_on" type="date" defaultValue={todayIso()} max={todayIso()} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-ink-900">
+                  Method
+                  <select name="method" defaultValue="bank_transfer" className={FIELD}>
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method.value} value={method.value}>
+                        {method.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-medium text-ink-900">
+                  Reference / UTR
+                  <input name="reference" className={FIELD} />
+                </label>
+                <div className="flex items-end">
+                  <SubmitButton pendingLabel="Recording...">Record advance</SubmitButton>
+                </div>
+              </form>
+            </section>
+          )}
+
           {!isQuote && (
             <section className="rounded-card border border-border bg-surface p-5">
               <h2 className="font-display text-lg font-semibold text-ink-900">Payments</h2>
@@ -248,13 +292,21 @@ export default async function BillingDocumentHub({
               {payments.length > 0 && (
                 <ul className="mt-5 divide-y divide-border rounded-card border border-border">
                   {payments.map((payment) => (
-                    <li key={payment.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                      <div>
-                        <p className="font-medium text-ink-900">{formatMoney(Number(payment.amount), doc.currency)}</p>
+                    <li key={payment.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-ink-900">
+                          {formatMoney(Number(payment.amount), doc.currency)}
+                          {Number(payment.tds_amount ?? 0) > 0 && (
+                            <span className="ml-2 text-xs font-normal text-text-primary/60">
+                              + {formatMoney(Number(payment.tds_amount), doc.currency)} TDS
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-text-primary/60">
                           {formatDate(payment.paid_on)} · {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}
                           {payment.reference ? ` · Ref ${payment.reference}` : ""}
                         </p>
+                        <PaymentEditForm payment={payment} redirectTo={here} />
                       </div>
                       <div className="flex items-center gap-3">
                         <Link href={`/admin/print/receipt/${payment.id}`} className="text-brand-700 underline">
@@ -275,12 +327,16 @@ export default async function BillingDocumentHub({
 
               {balance > 0 && doc.status !== "cancelled" && (
                 <div className="mt-5 space-y-4 border-t border-border pt-5">
-                  <form action={recordPayment}>
+                  <form action={recordPayment} className="flex flex-wrap items-end gap-3">
                     <input type="hidden" name="document_id" value={doc.id} />
                     <input type="hidden" name="full_balance" value="on" />
                     <input type="hidden" name="method" value="bank_transfer" />
+                    <label className="text-sm text-ink-900">
+                      Received on
+                      <input name="paid_on" type="date" defaultValue={todayIso()} max={todayIso()} className={`${FIELD} w-44`} />
+                    </label>
                     <SubmitButton pendingLabel="Recording...">
-                      Mark fully paid today ({formatMoney(balance, doc.currency)})
+                      Mark fully paid ({formatMoney(balance, doc.currency)})
                     </SubmitButton>
                   </form>
 
@@ -292,7 +348,14 @@ export default async function BillingDocumentHub({
                         <label htmlFor="amount" className="block text-sm font-medium text-ink-900">
                           Amount received
                         </label>
-                        <input id="amount" name="amount" type="number" step="0.01" min="0.01" max={balance} defaultValue={balance} required className={FIELD} />
+                        <input id="amount" name="amount" type="number" step="0.01" min="0" max={balance} defaultValue={balance} required className={FIELD} />
+                      </div>
+                      <div>
+                        <label htmlFor="tds_amount" className="block text-sm font-medium text-ink-900">
+                          TDS deducted by client
+                        </label>
+                        <input id="tds_amount" name="tds_amount" type="number" step="0.01" min="0" defaultValue={0} className={FIELD} />
+                        <p className="mt-1 text-xs text-text-primary/60">E.g. 10% under 194J. Counts towards the invoice.</p>
                       </div>
                       <div>
                         <label htmlFor="paid_on" className="block text-sm font-medium text-ink-900">

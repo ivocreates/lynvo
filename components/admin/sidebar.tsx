@@ -37,6 +37,9 @@ import {
   Globe,
   Cpu,
   BookOpen,
+  Landmark,
+  BookText,
+  CalendarCheck,
 } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
@@ -78,6 +81,16 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/billing/subscriptions", label: "Maintenance & retainers", icon: Repeat, permission: "billing.manage" },
       { href: "/admin/billing/catalog", label: "Catalog & packages", icon: Package, permission: "billing.manage" },
       { href: "/admin/billing/offers", label: "Offers & promo codes", icon: Layers, permission: "billing.manage" },
+    ],
+  },
+  {
+    key: "accounts",
+    label: "Accounts & tax",
+    icon: Landmark,
+    items: [
+      { href: "/admin/accounts", label: "Overview & tax", icon: Landmark, permission: "accounts" },
+      { href: "/admin/accounts/ledger", label: "Income & expenses", icon: BookText, permission: "accounts" },
+      { href: "/admin/accounts/compliance", label: "Compliance calendar", icon: CalendarCheck, permission: "accounts" },
     ],
   },
   {
