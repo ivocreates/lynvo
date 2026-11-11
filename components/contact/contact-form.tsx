@@ -37,7 +37,11 @@ function SubmitButton({ label }: { label: string }) {
 export default function ContactForm({
   services = [],
   defaults = {},
+  site = "studio",
+  budgets = BUDGETS,
 }: {
+  site?: "studio" | "tech";
+  budgets?: string[];
   services?: { slug: string; title: string }[];
   defaults?: {
     enquiryType?: string;
@@ -55,6 +59,7 @@ export default function ContactForm({
   return (
     <form action={formAction} className="mt-8 max-w-xl space-y-5">
       <input type="hidden" name="enquiry_type" value={enquiryType} />
+      <input type="hidden" name="site" value={site} />
 
       <div>
         <label htmlFor="enquiry-type" className={LABEL_CLASS}>
@@ -130,7 +135,7 @@ export default function ContactForm({
             </label>
             <select id="budget" name="budget" defaultValue={defaults.budget ?? ""} className={FIELD_CLASS}>
               <option value="">Select a range</option>
-              {BUDGETS.map((budget) => (
+              {budgets.map((budget) => (
                 <option key={budget} value={budget}>
                   {budget}
                 </option>

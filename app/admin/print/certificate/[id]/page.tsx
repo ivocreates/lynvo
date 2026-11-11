@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { requireTeamMember, hasRole } from "@/lib/auth";
-import { getSiteUrl } from "@/lib/env";
+import { getStudioUrl } from "@/lib/env";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PrintButton from "@/components/admin/print-button";
 import QrCode from "@/components/documents/qr-code";
@@ -29,7 +29,7 @@ export default async function CertificatePrintPage({ params }: { params: { id: s
   const certificate = data as unknown as Certificate;
 
   const [settings] = await Promise.all([getBillingSettings()]);
-  const url = verifyUrl(getSiteUrl("https://lynvo.tech"), certificate.code);
+  const url = verifyUrl(getStudioUrl(), certificate.code);
   const isManager = hasRole(profile, "junior_partner");
   const period = formatPeriod(certificate.start_date, certificate.end_date);
   const brand = settings.billing_brand_name || "LYNVO";

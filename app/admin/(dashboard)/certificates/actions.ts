@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, recordAudit } from "@/lib/auth";
-import { getSiteUrl } from "@/lib/env";
+import { getStudioUrl } from "@/lib/env";
 import { CERTIFICATE_SETTING_KEYS } from "@/lib/admin/billing";
 import {
   CERTIFICATE_TYPES,
@@ -158,7 +158,7 @@ export async function sendCertificateEmail(formData: FormData) {
     redirect("/admin/certificates?sent=0");
   }
 
-  const baseUrl = getSiteUrl("https://lynvo.tech");
+  const baseUrl = getStudioUrl();
   const printUrl = certificatePrintUrl(baseUrl, certificate.id);
   const publicVerifyUrl = verifyUrl(baseUrl, certificate.code);
 

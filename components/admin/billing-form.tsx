@@ -8,6 +8,8 @@ import { saveDocument, type BillingState } from "@/app/admin/(dashboard)/billing
 import {
   CATEGORY_OPTIONS,
   DOC_STATUSES,
+  MANUAL_STATUSES,
+  STATUS_LABELS,
   RECURRING_OPTIONS,
   REGIONS,
   calculateTotals,
@@ -51,7 +53,15 @@ export interface PackagePreset {
 export interface ClientOption {
   id: string;
   name: string;
+  contact_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  gstin?: string | null;
+  region?: Region;
 }
+
+type BillTo = { client_id: string; name: string; email: string; phone: string; gstin: string; address: string };
 
 export interface DocumentRecord {
   id: string;
@@ -133,6 +143,8 @@ export default function BillingForm({
   defaults,
   action = saveDocument,
   canSetStatus = true,
+  initialClientId,
+  cancelHref,
 }: {
   docType: DocType;
   document?: DocumentRecord;
@@ -143,6 +155,8 @@ export default function BillingForm({
   defaults: { currency: string; terms: string };
   action?: (state: BillingState, formData: FormData) => Promise<BillingState>;
   canSetStatus?: boolean;
+  initialClientId?: string;
+  cancelHref?: string;
 }) {
   const [state, formAction] = useFormState(action, initialState);
 
@@ -165,6 +179,48 @@ export default function BillingForm({
   const [discount, setDiscount] = useState(String(document?.discount_amount ?? 0));
   const [region, setRegion] = useState<Region>(document?.region ?? "IN");
   const [currency, setCurrency] = useState(document?.currency || defaults.currency || "INR");
+  const [billTo, setBillTo] = useState<BillTo>(() => {
+    const preset = !document && initialClientId ? clients.find((client) => client.id === initialClientId) : undefined;
+    return {
+      client_id: document?.client_id ?? preset?.id ?? "",
+      name: document?.client_name ?? preset?.name ?? "",
+      email: document?.client_email ?? preset?.email ?? "",
+      phone: document?.client_phone ?? preset?.phone ?? "",
+      gstin: document?.client_gstin ?? preset?.gstin ?? "",
+      address: document?.client_address ?? preset?.address ?? "",
+    };
+  });
+  const [search, setSearch] = useState("");
+
+  const searchResults = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (term.length < 2) return [];
+    return presets
+      .filter((preset) =>
+        `${preset.name} ${preset.category ?? ""} ${preset.description ?? ""}`.toLowerCase().includes(term)
+      )
+      .slice(0, 12);
+  }, [presets, search]);
+
+  function pickClient(id: string) {
+    const client = clients.find((entry) => entry.id === id);
+    if (!client) {
+      setBillTo((current) => ({ ...current, client_id: "" }));
+      return;
+    }
+    setBillTo({
+      client_id: client.id,
+      name: client.name,
+      email: client.email ?? "",
+      phone: client.phone ?? "",
+      gstin: client.gstin ?? "",
+      address: client.address ?? "",
+    });
+    if (!document && client.region && client.region !== region) changeRegion(client.region);
+  }
+
+  const lockedStatus = document && ["paid", "partially_paid"].includes(document.status) ? document.status : null;
+  const statusOptions = DOC_STATUSES.filter((status) => MANUAL_STATUSES[docType].includes(status.value));
 
   const lineItems = useMemo(() => rows.map(toLineItem), [rows]);
   const totals = useMemo(() => calculateTotals(lineItems, Number(discount) || 0), [lineItems, discount]);
@@ -264,9 +320,26 @@ export default function BillingForm({
             <label htmlFor="status" className="block text-sm font-medium text-ink-900">
               Status
             </label>
-            {canSetStatus ? (
-              <select id="status" name="status" defaultValue={document?.status ?? "draft"} className={inputClass}>
-                {DOC_STATUSES.map((status) => (
+            {canSetStatus && lockedStatus ? (
+              <>
+                <input type="hidden" name="status" value={lockedStatus} />
+                <input
+                  id="status"
+                  value={`${STATUS_LABELS[lockedStatus]} — follows recorded payments`}
+                  readOnly
+                  className={`${inputClass} text-text-primary/60`}
+                />
+              </>
+            ) : canSetStatus ? (
+              <select
+                id="status"
+                name="status"
+                defaultValue={
+                  document && MANUAL_STATUSES[docType].includes(document.status) ? document.status : "draft"
+                }
+                className={inputClass}
+              >
+                {statusOptions.map((status) => (
                   <option key={status.value} value={status.value}>
                     {status.label}
                   </option>
@@ -331,6 +404,38 @@ export default function BillingForm({
       <section className="rounded-card border border-border bg-surface p-5">
         <h2 className="font-display text-lg font-semibold text-ink-900">Bill to</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {clients.length > 0 && (
+            <div className="sm:col-span-2">
+              <label htmlFor="client_id" className="block text-sm font-medium text-ink-900">
+                Client account
+              </label>
+              <select
+                id="client_id"
+                name="client_id"
+                value={billTo.client_id}
+                onChange={(event) => pickClient(event.target.value)}
+                className={inputClass}
+              >
+                <option value="">New client (type the details below)</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                    {client.contact_name ? ` — ${client.contact_name}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-text-primary/60">
+                Picking an account fills in the details below. Linked documents show in the client&apos;s account and
+                portal once sent.
+              </p>
+            </div>
+          )}
+          {canSetStatus && !billTo.client_id && (
+            <label className="flex items-center gap-2 text-sm text-ink-900 sm:col-span-2">
+              <input type="checkbox" name="create_client" defaultChecked className="h-4 w-4 accent-brand-700" />
+              Create a client account for this client (or reuse one with the same name)
+            </label>
+          )}
           <div>
             <label htmlFor="client_name" className="block text-sm font-medium text-ink-900">
               Client name <span className="text-error">*</span>
@@ -339,7 +444,8 @@ export default function BillingForm({
               id="client_name"
               name="client_name"
               required
-              defaultValue={document?.client_name ?? ""}
+              value={billTo.name}
+              onChange={(event) => setBillTo((current) => ({ ...current, name: event.target.value }))}
               className={inputClass}
             />
           </div>
@@ -351,7 +457,8 @@ export default function BillingForm({
               id="client_email"
               name="client_email"
               type="email"
-              defaultValue={document?.client_email ?? ""}
+              value={billTo.email}
+              onChange={(event) => setBillTo((current) => ({ ...current, email: event.target.value }))}
               className={inputClass}
             />
           </div>
@@ -359,13 +466,25 @@ export default function BillingForm({
             <label htmlFor="client_phone" className="block text-sm font-medium text-ink-900">
               Phone
             </label>
-            <input id="client_phone" name="client_phone" defaultValue={document?.client_phone ?? ""} className={inputClass} />
+            <input
+              id="client_phone"
+              name="client_phone"
+              value={billTo.phone}
+              onChange={(event) => setBillTo((current) => ({ ...current, phone: event.target.value }))}
+              className={inputClass}
+            />
           </div>
           <div>
             <label htmlFor="client_gstin" className="block text-sm font-medium text-ink-900">
               GSTIN
             </label>
-            <input id="client_gstin" name="client_gstin" defaultValue={document?.client_gstin ?? ""} className={inputClass} />
+            <input
+              id="client_gstin"
+              name="client_gstin"
+              value={billTo.gstin}
+              onChange={(event) => setBillTo((current) => ({ ...current, gstin: event.target.value }))}
+              className={inputClass}
+            />
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="client_address" className="block text-sm font-medium text-ink-900">
@@ -375,33 +494,11 @@ export default function BillingForm({
               id="client_address"
               name="client_address"
               rows={3}
-              defaultValue={document?.client_address ?? ""}
+              value={billTo.address}
+              onChange={(event) => setBillTo((current) => ({ ...current, address: event.target.value }))}
               className={inputClass}
             />
           </div>
-          {clients.length > 0 && (
-            <div className="sm:col-span-2">
-              <label htmlFor="client_id" className="block text-sm font-medium text-ink-900">
-                Client portal account
-              </label>
-              <select
-                id="client_id"
-                name="client_id"
-                defaultValue={document?.client_id ?? ""}
-                className={inputClass}
-              >
-                <option value="">Not shared with a client</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-text-primary/60">
-                Linked documents appear in that client&apos;s portal once the status is Sent.
-              </p>
-            </div>
-          )}
         </div>
       </section>
 
@@ -466,6 +563,50 @@ export default function BillingForm({
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="relative mt-4">
+          <label htmlFor="catalog-search" className="sr-only">
+            Search the catalog
+          </label>
+          <input
+            id="catalog-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search the catalog: logo, letterhead, business card, SEO, hosting..."
+            className={inputClass}
+            autoComplete="off"
+          />
+          {searchResults.length > 0 && (
+            <ul className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto rounded-card border border-border bg-surface shadow-lg">
+              {searchResults.map((preset) => (
+                <li key={preset.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addPreset(preset.id);
+                      setSearch("");
+                    }}
+                    className="flex w-full items-start justify-between gap-4 px-3 py-2 text-left text-sm hover:bg-canvas-warm"
+                  >
+                    <span>
+                      <span className="font-medium text-ink-900">{preset.name}</span>
+                      <span className="block text-xs text-text-primary/60">
+                        {preset.category}
+                        {preset.description ? ` · ${preset.description}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-ink-900">
+                      {formatMoney(region === "INT" ? preset.unit_price_intl : preset.unit_price, currencyForRegion(region))}
+                      {preset.price_from ? "+" : ""}
+                      {preset.recurring === "monthly" ? "/mo" : preset.recurring === "yearly" ? "/yr" : ""}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {presets.length === 0 && (
@@ -753,7 +894,7 @@ export default function BillingForm({
 
       <div className="flex items-center gap-3 border-t border-border pt-5">
         <SubmitButton>Save {label.toLowerCase()}</SubmitButton>
-        <Link href="/admin/billing" className="text-sm text-text-primary/70 underline">
+        <Link href={cancelHref ?? (document ? `/admin/billing/${document.id}` : "/admin/billing")} className="text-sm text-text-primary/70 underline">
           Cancel
         </Link>
       </div>

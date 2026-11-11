@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireStaff } from "@/lib/auth";
+import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
 import PageHeader from "@/components/admin/page-header";
 import ResourceForm from "@/components/admin/resource-form";
@@ -8,7 +8,7 @@ export default async function NewResourcePage({ params }: { params: { resource: 
   const resource = getResource(params.resource);
   if (!resource) notFound();
 
-  await requireStaff();
+  await requireResourceAccess(params.resource);
 
   const defaults: Record<string, string> = {};
   for (const field of resource.fields) {

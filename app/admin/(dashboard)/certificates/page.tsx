@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getSiteUrl } from "@/lib/env";
+import { getStudioUrl } from "@/lib/env";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { CERTIFICATE_SETTING_GROUPS } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
@@ -55,7 +55,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams?
     ends_on: person.ends_on,
   }));
 
-  const baseUrl = getSiteUrl("https://lynvo.tech");
+  const baseUrl = getStudioUrl();
   const sentMessage =
     searchParams?.sent === "1"
       ? "Certificate email sent."

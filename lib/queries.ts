@@ -115,14 +115,33 @@ export type Faq = {
   category: string;
 };
 
-export const getServices = () =>
-  safeSelect<Service>("services", (q) => q.select("*").eq("active", true).order("order", { ascending: true }));
+export type PublicSite = "studio" | "tech";
 
-export const getProjects = () =>
-  safeSelect<Project>("projects", (q) => q.select("*").eq("status", "published").order("created_at", { ascending: false }));
+/**
+ * Rows for one public site ('studio' or 'tech', plus 'both'). Falls back to an
+ * unfiltered read when the `site` column does not exist yet (before 0031).
+ */
+async function siteSelect<T>(table: string, site: PublicSite, build: (q: any) => any): Promise<T[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await build(supabase.from(table)).in("site", [site, "both"]);
+    if (!error) return (data ?? []) as T[];
+    if (error.code !== "42703") console.error(`[queries] select from "${table}" failed:`, error.code, error.message);
+  } catch (error) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") throw error;
+  }
+  // The tech site has nothing to show until its rows exist.
+  return site === "studio" ? safeSelect<T>(table, build) : [];
+}
 
-export const getBlogPosts = () =>
-  safeSelect<BlogPost>("blog_posts", (q) => q.select("*").eq("status", "published").order("published_at", { ascending: false }));
+export const getServices = (site: PublicSite = "studio") =>
+  siteSelect<Service>("services", site, (q) => q.select("*").eq("active", true).order("order", { ascending: true }));
+
+export const getProjects = (site: PublicSite = "studio") =>
+  siteSelect<Project>("projects", site, (q) => q.select("*").eq("status", "published").order("created_at", { ascending: false }));
+
+export const getBlogPosts = (site: PublicSite = "studio") =>
+  siteSelect<BlogPost>("blog_posts", site, (q) => q.select("*").eq("status", "published").order("published_at", { ascending: false }));
 
 export const getTeamMembers = () =>
   safeSelect<TeamMember>("team_members", (q) => q.select("*").eq("is_active", true).order("order", { ascending: true }));
@@ -142,8 +161,8 @@ export const getSocialLinks = () =>
 export const getJobOpenings = () =>
   safeSelect<JobOpening>("job_openings", (q) => q.select("*").eq("is_open", true).order("order", { ascending: true }));
 
-export const getFaqs = (category = "contact") =>
-  safeSelect<Faq>("faqs", (q) =>
+export const getFaqs = (category = "contact", site: PublicSite = "studio") =>
+  siteSelect<Faq>("faqs", site, (q) =>
     q.select("id, question, answer, category").eq("active", true).eq("category", category).order("order", { ascending: true })
   );
 

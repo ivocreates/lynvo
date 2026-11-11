@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/auth";
+import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
 import { toFieldValue } from "@/lib/admin/form";
 import PageHeader from "@/components/admin/page-header";
@@ -14,7 +14,7 @@ export default async function EditResourcePage({
   const resource = getResource(params.resource);
   if (!resource) notFound();
 
-  await requireStaff();
+  await requireResourceAccess(params.resource);
 
   const supabase = createClient();
   const { data: row } = await supabase

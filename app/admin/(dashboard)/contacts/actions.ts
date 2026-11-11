@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireSuperAdmin, recordAudit } from "@/lib/auth";
+import { requirePermission, requireSuperAdmin, recordAudit } from "@/lib/auth";
 
 const STATUSES = ["new", "read", "replied", "archived"] as const;
 
 export async function updateContactStatus(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("crm");
 
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");

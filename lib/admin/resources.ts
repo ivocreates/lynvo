@@ -48,6 +48,21 @@ const SEO_FIELDS: FieldConfig[] = [
   { name: "seo_description", label: "SEO description", type: "textarea" },
 ];
 
+/** Which public site shows the row (migration 0031). */
+const SITE_FIELD: FieldConfig = {
+  name: "site",
+  label: "Site",
+  type: "select",
+  required: true,
+  inList: true,
+  options: [
+    { value: "studio", label: "lynvo.studio" },
+    { value: "tech", label: "lynvo.tech" },
+    { value: "both", label: "Both sites" },
+  ],
+  help: "lynvo.studio: going online, branding, growth. lynvo.tech: custom software and security.",
+};
+
 const RECURRING_OPTIONS_CONFIG = RECURRING_OPTIONS.map(({ value, label }) => ({ value, label }));
 
 export const RESOURCES: ResourceConfig[] = [
@@ -70,6 +85,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "tags", label: "Tags", type: "tags", help: "Comma separated." },
       { name: "featured", label: "Featured", type: "boolean", inList: true },
       { name: "image_url", label: "Image URL", type: "url" },
+      SITE_FIELD,
       ...SEO_FIELDS,
     ],
   },
@@ -91,6 +107,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "featured", label: "Featured", type: "boolean", inList: true },
       { name: "order", label: "Order", type: "number", min: 0, inList: true },
       { name: "image_url", label: "Image URL", type: "url" },
+      SITE_FIELD,
       ...SEO_FIELDS,
     ],
   },
@@ -111,6 +128,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "tags", label: "Tags", type: "tags" },
       { name: "cover_image_url", label: "Cover image URL", type: "url" },
       { name: "published_at", label: "Publish date", type: "datetime", inList: true, help: "Set automatically when you publish without a date." },
+      SITE_FIELD,
       ...SEO_FIELDS,
     ],
   },
@@ -308,6 +326,7 @@ export const RESOURCES: ResourceConfig[] = [
           { value: "careers", label: "Careers page" },
         ],
       },
+      SITE_FIELD,
       { name: "active", label: "Active", type: "boolean", inList: true },
       { name: "order", label: "Order", type: "number", min: 0, inList: true },
     ],
@@ -372,4 +391,11 @@ export const RESOURCES: ResourceConfig[] = [
 
 export function getResource(key: string) {
   return RESOURCES.find((resource) => resource.key === key);
+}
+
+/** Which permission (or role tier) guards a generic resource. */
+export function resourceAccess(key: string): { permission: "website" | "billing.manage" } | { manager: true } {
+  if (key === "billing-items" || key === "billing-packages") return { permission: "billing.manage" };
+  if (key === "meetings") return { manager: true };
+  return { permission: "website" };
 }

@@ -1,60 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
-import type { LineItem } from "@/lib/admin/billing";
+import { loadBillingView } from "@/lib/billing-view";
 import PrintButton from "@/components/admin/print-button";
-import BillingDocument, { type BillingDocumentRecord } from "@/components/documents/billing-document";
+import BillingDocument from "@/components/documents/billing-document";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function BillingPrintPage({ params }: { params: { id: string } }) {
-  await requireStaff();
+  await requirePermission("billing.manage");
 
-  const supabase = createClient();
-  const { data: document } = await supabase
-    .from("billing_documents")
-    .select("*")
-    .eq("id", params.id)
-    .maybeSingle();
-
-  if (!document) notFound();
-
-  const [{ data: itemRows }, settings] = await Promise.all([
-    supabase
-      .from("billing_document_items")
-      .select("name, description, category, recurring, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
-      .eq("document_id", params.id)
-      .order("position", { ascending: true }),
-    getBillingSettings(),
-  ]);
-
-  const items = ((itemRows ?? []) as LineItem[]).map((item) => ({
-    ...item,
-    quantity: Number(item.quantity),
-    unit_price: Number(item.unit_price),
-    tax_rate: Number(item.tax_rate),
-    line_total: Number(item.line_total),
-  }));
+  const [view, settings] = await Promise.all([loadBillingView(params.id), getBillingSettings()]);
+  if (!view) notFound();
 
   return (
     <div className="min-h-screen bg-canvas-warm py-8 print:bg-white print:py-0">
       <style>{"@page { size: A4; margin: 14mm; }"}</style>
 
       <div className="mx-auto mb-6 flex max-w-[210mm] items-center justify-between gap-4 px-4 print:hidden">
-        <Link href="/admin/billing" className="text-sm text-brand-700 underline">
-          Back to billing
+        <Link href={`/admin/billing/${params.id}`} className="text-sm text-brand-700 underline">
+          Back to document
         </Link>
         <PrintButton />
       </div>
 
-      <BillingDocument
-        doc={document as unknown as BillingDocumentRecord}
-        items={items}
-        settings={settings}
-      />
+      <BillingDocument doc={view.doc} items={view.items} settings={settings} payments={view.payments} project={view.project} />
     </div>
   );
 }

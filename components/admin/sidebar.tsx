@@ -27,30 +27,36 @@ import {
   Award,
   Building2,
   ChevronDown,
+  Megaphone,
+  KanbanSquare,
+  PhoneCall,
+  Wallet,
+  Repeat,
+  Scale,
+  KeyRound,
+  Globe,
+  Cpu,
+  BookOpen,
 } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
+import type { Permission } from "@/lib/permissions";
 
 type Icon = typeof LayoutDashboard;
-type NavItem = { href: string; label: string; icon: Icon; minRole?: Role };
+type NavItem = { href: string; label: string; icon: Icon; minRole?: Role; permission?: Permission };
 type NavGroup = { key: string; label: string; icon: Icon; items: NavItem[] };
 
 const STANDALONE: NavItem[] = [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }];
 
 const GROUPS: NavGroup[] = [
   {
-    key: "content",
-    label: "Content management",
-    icon: FolderKanban,
+    key: "sales",
+    label: "Sales & marketing",
+    icon: Megaphone,
     items: [
-      { href: "/admin/projects", label: "Projects", icon: FolderKanban },
-      { href: "/admin/services", label: "Services", icon: Wrench },
-      { href: "/admin/blog", label: "Blog", icon: FileText },
-      { href: "/admin/team", label: "Team", icon: Users },
-      { href: "/admin/careers", label: "Careers", icon: Briefcase },
-      { href: "/admin/faqs", label: "FAQs", icon: HelpCircle },
-      { href: "/admin/reviews", label: "Reviews", icon: Star },
-      { href: "/admin/stats", label: "Statistics", icon: BarChart3 },
-      { href: "/admin/social", label: "Social links", icon: Link2 },
+      { href: "/admin/crm", label: "Pipeline", icon: KanbanSquare, permission: "crm" },
+      { href: "/admin/crm/leads", label: "Leads & calls", icon: PhoneCall, permission: "crm" },
+      { href: "/admin/crm/playbook", label: "Playbook & scripts", icon: BookOpen, permission: "crm" },
+      { href: "/admin/contacts", label: "Website enquiries", icon: Inbox, permission: "crm" },
     ],
   },
   {
@@ -58,8 +64,8 @@ const GROUPS: NavGroup[] = [
     label: "Clients",
     icon: Building2,
     items: [
-      { href: "/admin/clients", label: "Clients", icon: Building2 },
-      { href: "/admin/contacts", label: "Contacts", icon: Inbox, minRole: "admin" },
+      { href: "/admin/clients", label: "Client accounts", icon: Building2, permission: "clients.manage" },
+      { href: "/admin/legal", label: "Legal documents", icon: Scale, permission: "clients.manage" },
     ],
   },
   {
@@ -67,9 +73,29 @@ const GROUPS: NavGroup[] = [
     label: "Billing",
     icon: ReceiptText,
     items: [
-      { href: "/admin/billing", label: "Quotes & invoices", icon: ReceiptText },
-      { href: "/admin/billing-items", label: "Service catalog", icon: Package },
-      { href: "/admin/billing-packages", label: "Package presets", icon: Layers },
+      { href: "/admin/billing", label: "Quotes & invoices", icon: ReceiptText, permission: "billing.manage" },
+      { href: "/admin/billing/payments", label: "Payments", icon: Wallet, permission: "billing.manage" },
+      { href: "/admin/billing/subscriptions", label: "Maintenance & retainers", icon: Repeat, permission: "billing.manage" },
+      { href: "/admin/billing-items", label: "Service catalog", icon: Package, permission: "billing.manage" },
+      { href: "/admin/billing-packages", label: "Package presets", icon: Layers, permission: "billing.manage" },
+    ],
+  },
+  {
+    key: "website",
+    label: "Websites",
+    icon: Globe,
+    items: [
+      { href: "/admin/projects", label: "Work / portfolio", icon: FolderKanban, permission: "website" },
+      { href: "/admin/services", label: "Services", icon: Wrench, permission: "website" },
+      { href: "/admin/blog", label: "Blog", icon: FileText, permission: "website" },
+      { href: "/admin/team", label: "Team page", icon: Users, permission: "website" },
+      { href: "/admin/careers", label: "Careers", icon: Briefcase, permission: "website" },
+      { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, permission: "website" },
+      { href: "/admin/reviews", label: "Reviews", icon: Star, permission: "website" },
+      { href: "/admin/stats", label: "Statistics", icon: BarChart3, permission: "website" },
+      { href: "/admin/social", label: "Social links", icon: Link2, permission: "website" },
+      { href: "/admin/media", label: "Media", icon: ImageIcon, permission: "website" },
+      { href: "/admin/sites", label: "Site copy (studio & tech)", icon: Cpu, permission: "website" },
     ],
   },
   {
@@ -82,16 +108,14 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/documents", label: "HR documents", icon: FileSignature, minRole: "junior_partner" },
       { href: "/admin/certificates", label: "Certificates", icon: Award, minRole: "junior_partner" },
       { href: "/admin/admins", label: "People", icon: ShieldCheck, minRole: "junior_partner" },
+      { href: "/admin/access", label: "Access & permissions", icon: KeyRound, minRole: "admin" },
     ],
   },
   {
     key: "system",
-    label: "Media & settings",
+    label: "Settings",
     icon: Settings,
-    items: [
-      { href: "/admin/media", label: "Media", icon: ImageIcon },
-      { href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" },
-    ],
+    items: [{ href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" }],
   },
 ];
 
@@ -99,8 +123,14 @@ const TRAILING: NavItem[] = [{ href: "/staff", label: "Team workspace", icon: Us
 
 const STORAGE_KEY = "lynvo-admin-nav-open";
 
+const ALL_HREFS = [...STANDALONE, ...GROUPS.flatMap((group) => group.items)].map((item) => item.href);
+
+/** The most specific nav entry wins, so /admin/crm/leads does not also light up /admin/crm. */
 function isActive(pathname: string, href: string) {
-  return href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`);
+  if (href === "/admin") return pathname === "/admin";
+  const matches = (candidate: string) => pathname === candidate || pathname.startsWith(`${candidate}/`);
+  if (!matches(href)) return false;
+  return !ALL_HREFS.some((other) => other !== href && other.startsWith(`${href}/`) && matches(other));
 }
 
 function linkClass(active: boolean) {
@@ -109,9 +139,11 @@ function linkClass(active: boolean) {
   }`;
 }
 
-export default function Sidebar({ role }: { role: Role }) {
+export default function Sidebar({ role, permissions }: { role: Role; permissions: Permission[] }) {
   const pathname = usePathname();
-  const visible = (item: NavItem) => !item.minRole || ROLE_RANK[role] >= ROLE_RANK[item.minRole];
+  const visible = (item: NavItem) =>
+    (!item.minRole || ROLE_RANK[role] >= ROLE_RANK[item.minRole]) &&
+    (!item.permission || permissions.includes(item.permission));
 
   const groups = GROUPS.map((group) => ({ ...group, items: group.items.filter(visible) })).filter(
     (group) => group.items.length > 0

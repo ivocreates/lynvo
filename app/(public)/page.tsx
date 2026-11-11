@@ -1,4 +1,7 @@
 import Image from "next/image";
+import { headers } from "next/headers";
+import { getTechUrl } from "@/lib/env";
+import { siteForHost } from "@/lib/sites";
 import Link from "next/link";
 import SectionStamp from "@/components/ui/section-stamp";
 import ArchiveCard from "@/components/ui/archive-card";
@@ -23,6 +26,21 @@ const principles = [
   "Global + local reach",
 ];
 
+const launchSteps = [
+  {
+    title: "Look the part",
+    text: "A brand identity that earns trust: logo, colours, business cards, letterhead and social kit.",
+  },
+  {
+    title: "Get found",
+    text: "A fast website, Google Business Profile, WhatsApp and local SEO so customers can find and reach you.",
+  },
+  {
+    title: "Grow with smart tech",
+    text: "Analytics, automation and AI assistants that turn visitors into enquiries — plus care plans so nothing breaks.",
+  },
+];
+
 const stackGroups = [
   { label: "Frontend", items: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Framer Motion"] },
   { label: "Backend", items: ["Node.js", "Python", "Laravel", "Firebase", "REST / GraphQL"] },
@@ -35,6 +53,7 @@ function settingsObject(rows: { key: string; value: { text?: string } | null }[]
 }
 
 export default async function HomePage() {
+  const techUrl = siteForHost(headers().get("host")) === "any" ? "/tech" : getTechUrl();
   const [services, projects, stats, team, reviews, settingsRows, socialLinks] = await Promise.all([
     getServices(),
     getProjects(),
@@ -50,11 +69,11 @@ export default async function HomePage() {
   const featuredProjects = projects.filter((project) => project.featured).slice(0, 4);
   const featuredReview = reviews[0];
   const founder = team[0];
-  const heroKicker = settings.hero_kicker || "LYNVO DIGITAL STUDIO / LINKING IDEAS TO INNOVATION";
-  const heroHeadline = settings.hero_headline || "We turn bold ideas into digital momentum. Built to scale.";
+  const heroKicker = settings.hero_kicker || "LYNVO STUDIO / LAUNCH YOUR NEXT VENTURE ONLINE";
+  const heroHeadline = settings.hero_headline || "Launch your next venture online — and keep it growing.";
   const heroDescription =
     settings.hero_description ||
-    "From launch-ready websites to product-grade applications, we blend design strategy, engineering discipline, and business context so every release moves your brand forward.";
+    "Websites, brand identities and a complete online presence for businesses ready to be found. We bring you online, then help you grow with smarter technology and AI.";
   const heroPrimary = settings.hero_primary_cta || "Start a project";
   const heroSecondary = settings.hero_secondary_cta || "See case studies";
 
@@ -152,6 +171,31 @@ export default async function HomePage() {
               </ArchiveCard>
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className="container-page py-16">
+        <SectionStamp label="GO ONLINE IN THREE STEPS" />
+        <h2 className="font-display text-2xl font-semibold text-ink-900">From idea to a business people can find</h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {launchSteps.map((step, index) => (
+            <div key={step.title} className="rounded-card border border-border bg-surface p-6">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-brand-700">0{index + 1}</p>
+              <p className="mt-3 font-display text-lg font-semibold text-ink-900">{step.title}</p>
+              <p className="mt-2 text-sm leading-6 text-text-primary/75">{step.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="container-page pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-ink-900 px-6 py-5 text-text-inverse">
+          <p className="text-sm text-text-inverse/85">
+            {settings.studio_tech_teaser || "Need custom software, an app or a security check? That is LYNVO Tech."}
+          </p>
+          <a href={techUrl} className="rounded-card border border-white/25 px-4 py-2 text-sm font-medium hover:bg-white/10">
+            Visit lynvo.tech →
+          </a>
         </div>
       </section>
 

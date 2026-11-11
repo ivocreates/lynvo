@@ -10,3 +10,26 @@ keep_vars = true
 [assets]
 binding = "ASSETS"
 directory = ".open-next/assets"
+
+# One Worker serves all three domains; middleware.ts routes by host.
+# Attach each domain under Workers & Pages -> lynvo-webapp -> Settings ->
+# Domains & Routes, or uncomment to let `wrangler deploy` attach them.
+# routes = [
+#   { pattern = "app.lynvo.studio", custom_domain = true },
+#   { pattern = "lynvo.studio", custom_domain = true },
+#   { pattern = "www.lynvo.studio", custom_domain = true },
+#   { pattern = "lynvo.tech", custom_domain = true },
+#   { pattern = "www.lynvo.tech", custom_domain = true },
+# ]
+# ...
+[vars]
+APP_URL = "https://app.lynvo.studio/"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6dnRwaWFnYW5tZ2R4ZmJwcXNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjU0ODEsImV4cCI6MjEwMjQ0MTQ4MX0.FscuuXafSE-Y5GssYuGcA23Str-PjH15LpLYZX1hhtg"
+NEXT_PUBLIC_SUPABASE_URL = "https://izvtpiaganmgdxfbpqso.supabase.co"
+SITE_URL = "https://app.lynvo.studio"
+STUDIO_URL = "https://lynvo.studio/"
+TECH_URL = "https://lynvo.tech/"
+# Secrets (SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, CONTACT_NOTIFICATION_TO)
+# must NOT live here: this file is committed, and any value here overrides the
+# dashboard. Set them as encrypted secrets: `npx wrangler secret put NAME` or
+# Workers & Pages -> lynvo-webapp -> Settings -> Variables and Secrets.

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
+import { requireAdmin, recordAudit } from "@/lib/auth";
+import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
 import { parseResourceForm } from "@/lib/admin/form";
 
@@ -33,10 +34,9 @@ export async function saveResource(
   _prev: ResourceState,
   formData: FormData
 ): Promise<ResourceState> {
-  await requireStaff();
-
   const resourceKey = String(formData.get("__resource") ?? "");
   const id = String(formData.get("__id") ?? "");
+  await requireResourceAccess(resourceKey);
   const resource = getResource(resourceKey);
 
   if (!resource) return { ok: false, message: "Unknown resource." };

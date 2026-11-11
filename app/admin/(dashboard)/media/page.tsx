@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff, hasRole } from "@/lib/auth";
+import { requirePermission, hasRole } from "@/lib/auth";
 import PageHeader from "@/components/admin/page-header";
 import MediaUploader from "@/components/admin/media-uploader";
 import CopyButton from "@/components/admin/copy-button";
@@ -7,7 +7,7 @@ import ConfirmSubmit from "@/components/admin/confirm-submit";
 import { deleteMedia } from "./actions";
 
 export default async function MediaPage() {
-  const profile = await requireStaff();
+  const profile = await requirePermission("website");
   const canDelete = hasRole(profile, "admin");
 
   const supabase = createClient();

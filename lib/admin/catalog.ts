@@ -52,14 +52,33 @@ export async function getCatalog() {
   return { presets, packages };
 }
 
-/** Clients a document can be shared with through the portal. */
+/** Client accounts a document can be addressed to; details pre-fill the Bill-to block. */
 export async function getClientOptions() {
   const supabase = createClient();
-  const { data } = await supabase
+  const first = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, contact_name, email, phone, address, gstin, region")
     .neq("status", "archived")
     .order("name", { ascending: true });
+  let data = first.data as Record<string, any>[] | null;
 
-  return (data ?? []) as { id: string; name: string }[];
+  // gstin / region arrive with migration 0028.
+  if (first.error) {
+    ({ data } = await supabase
+      .from("clients")
+      .select("id, name, contact_name, email, phone, address")
+      .neq("status", "archived")
+      .order("name", { ascending: true }));
+  }
+
+  return ((data ?? []) as Record<string, any>[]).map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    contact_name: row.contact_name ?? null,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    address: row.address ?? null,
+    gstin: row.gstin ?? null,
+    region: row.region === "INT" ? ("INT" as const) : ("IN" as const),
+  }));
 }

@@ -24,6 +24,7 @@ const contactSchema = z.object({
   budget: optionalText(80),
   timeline: optionalText(80),
   enquiry_type: z.enum(ENQUIRY_TYPES).catch("project"),
+  site: z.enum(["studio", "tech"]).catch("studio"),
   // Bots fill hidden fields; humans leave them empty.
   website: z.string().max(0).optional(),
 });
@@ -71,6 +72,7 @@ export async function submitContact(
     budget: formData.get("budget") ?? undefined,
     timeline: formData.get("timeline") ?? undefined,
     enquiry_type: formData.get("enquiry_type") ?? "project",
+    site: formData.get("site") ?? "studio",
     website: formData.get("website") ?? undefined,
   });
 
@@ -79,7 +81,7 @@ export async function submitContact(
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("contacts").insert({
+  const row = {
     name: parsed.data.name,
     email: parsed.data.email,
     message: parsed.data.message,
@@ -90,7 +92,10 @@ export async function submitContact(
     timeline: parsed.data.timeline ?? null,
     enquiry_type: parsed.data.enquiry_type,
     status: "new",
-  });
+  };
+  let { error } = await supabase.from("contacts").insert({ ...row, site: parsed.data.site });
+  // Before migration 0031 there is no `site` column; keep the enquiry anyway.
+  if (error?.code === "42703") ({ error } = await supabase.from("contacts").insert(row));
 
   if (error) {
     console.error("[contact] insert failed:", error.code, error.message);
@@ -114,7 +119,7 @@ export async function submitContact(
           from: "LYNVO <notifications@lynvo.studio>",
           to: notificationTo,
           reply_to: parsed.data.email,
-          subject: `New ${parsed.data.enquiry_type} enquiry from ${parsed.data.name}`,
+          subject: `New ${parsed.data.site === "tech" ? "LYNVO Tech " : ""}${parsed.data.enquiry_type} enquiry from ${parsed.data.name}`,
           text: [
             `Type: ${parsed.data.enquiry_type}`,
             parsed.data.company && `Company: ${parsed.data.company}`,

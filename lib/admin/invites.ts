@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSiteUrl } from "@/lib/env";
+import { getAppUrl } from "@/lib/env";
 
 export const MIN_PASSWORD_LENGTH = 12;
 
@@ -17,7 +17,7 @@ export type ProvisionResult =
  */
 function confirmUrl(hashedToken: string, type: "invite" | "recovery", next: string) {
   const params = new URLSearchParams({ token_hash: hashedToken, type, next });
-  return `${getSiteUrl()}/auth/confirm?${params.toString()}`;
+  return `${getAppUrl()}/auth/confirm?${params.toString()}`;
 }
 
 async function sendInviteEmail(to: string, link: string, subject: string, intro: string) {
@@ -112,7 +112,7 @@ export async function provisionAccount({
   const { data, error } = await admin.auth.admin.generateLink({
     type,
     email,
-    options: { redirectTo: `${getSiteUrl()}${next}` },
+    options: { redirectTo: `${getAppUrl()}${next}` },
   });
 
   const hashedToken = data?.properties?.hashed_token;

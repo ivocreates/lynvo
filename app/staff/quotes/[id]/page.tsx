@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog } from "@/lib/admin/catalog";
@@ -8,7 +8,7 @@ import type { LineItem } from "@/lib/admin/billing";
 import { saveStaffQuote } from "../actions";
 
 export default async function EditStaffQuotePage({ params }: { params: { id: string } }) {
-  const profile = await requireRole("employee");
+  const profile = await requirePermission("billing.draft");
 
   const supabase = createClient();
   const { data: document } = await supabase
@@ -38,6 +38,7 @@ export default async function EditStaffQuotePage({ params }: { params: { id: str
 
       <div className="mt-8">
         <BillingForm
+          cancelHref="/staff/quotes"
           docType="quote"
           document={document as any}
           items={(itemRows ?? []) as LineItem[]}

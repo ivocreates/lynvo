@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { requireStaff, hasRole } from "@/lib/auth";
+import { requirePermission, hasRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/admin/page-header";
+import ClientTabs from "@/components/admin/client-tabs";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import ClientInviteForm from "@/components/admin/client-invite-form";
 import {
@@ -44,7 +45,7 @@ const LABEL = "block text-xs uppercase tracking-[0.18em] text-text-primary/60";
 const CHECKBOX = "h-4 w-4 rounded border-border accent-brand-700";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const profile = await requireStaff();
+  const profile = await requirePermission("clients.manage");
   const canDelete = hasRole(profile, "admin");
 
   const supabase = createClient();
@@ -87,6 +88,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   return (
     <div>
       <PageHeader stamp="CLIENT" title={client.name} description="Engagements, timeline, deliveries, and reports." />
+      <ClientTabs clientId={client.id} active="overview" />
 
       <section className="mb-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <form action={updateClientRecord} className="rounded-card border border-border bg-surface p-5">

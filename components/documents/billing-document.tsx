@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { Fragment } from "react";
 import {
+  INVOICE_KIND_LABELS,
+  PAYMENT_METHOD_LABELS,
   formatMoney,
   groupByCategory,
   recurringSuffix,
@@ -28,7 +30,14 @@ export type BillingDocumentRecord = {
   total: number;
   notes: string | null;
   terms: string | null;
+  amount_paid?: number | null;
+  balance_due?: number | null;
+  invoice_kind?: keyof typeof INVOICE_KIND_LABELS | null;
 };
+
+export type BillingPaymentLine = { paid_on: string; amount: number; method: string; reference: string | null };
+
+export type ProjectBillingSummary = { quoteNumber: string; quoteTotal: number; invoicedToDate: number };
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -44,14 +53,24 @@ export default function BillingDocument({
   doc,
   items,
   settings,
+  payments = [],
+  project = null,
 }: {
   doc: BillingDocumentRecord;
   items: LineItem[];
   settings: BillingSettings;
+  payments?: BillingPaymentLine[];
+  project?: ProjectBillingSummary | null;
 }) {
   const currency = doc.currency || "INR";
   const isInvoice = doc.doc_type === "invoice";
-  const title = isInvoice ? "TAX INVOICE" : "PROJECT PROPOSAL & QUOTATION";
+  // "Tax invoice" is only correct once LYNVO is GST-registered.
+  const invoiceTitle = settings.billing_gstin ? "TAX INVOICE" : "INVOICE";
+  const title = isInvoice ? invoiceTitle : "PROJECT PROPOSAL & QUOTATION";
+  const kindLabel = isInvoice && doc.invoice_kind && doc.invoice_kind !== "standard" ? INVOICE_KIND_LABELS[doc.invoice_kind] : null;
+  const paid = Number(doc.amount_paid ?? 0);
+  const balance = Number(doc.balance_due ?? Number(doc.total) - paid);
+  const paidStamp = isInvoice && doc.status === "paid" ? "PAID" : isInvoice && doc.status === "partially_paid" ? "PARTIALLY PAID" : null;
   const groups = groupByCategory(items);
   const recurring = recurringTotals(items);
 
@@ -103,6 +122,7 @@ export default function BillingDocument({
 
         <div className="text-right">
           <p className="font-display text-lg font-semibold tracking-wide">{title}</p>
+          {kindLabel && <p className="text-[12px] font-semibold uppercase tracking-widest text-brand-700">{kindLabel}</p>}
           {headerNote && <p className="mt-1 text-[12px] text-ink-900/70">{headerNote}</p>}
           <p className="mt-2 text-[12px]">
             <span className="text-ink-900/60">Number:</span> {doc.number}
@@ -117,8 +137,17 @@ export default function BillingDocument({
             </p>
           )}
           <p className="text-[12px] capitalize">
-            <span className="text-ink-900/60">Status:</span> {doc.status}
+            <span className="text-ink-900/60">Status:</span> {doc.status.replace(/_/g, " ")}
           </p>
+          {paidStamp && (
+            <p
+              className={`mt-2 inline-block -rotate-3 rounded border-2 px-3 py-1 font-display text-[15px] font-bold tracking-widest ${
+                paidStamp === "PAID" ? "border-success text-success" : "border-warning text-warning"
+              }`}
+            >
+              {paidStamp}
+            </p>
+          )}
         </div>
       </header>
 
@@ -217,6 +246,58 @@ export default function BillingDocument({
           ))}
         </dl>
       </div>
+
+      {isInvoice && (payments.length > 0 || paid > 0) && (
+        <section className="mt-6 flex justify-end">
+          <div className="w-full max-w-md text-[12px]">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-900/60">Payments received</p>
+            <table className="mt-1 w-full border-collapse">
+              <tbody>
+                {payments.map((payment, index) => (
+                  <tr key={index} className="border-b border-ink-900/10">
+                    <td className="py-1 pr-2">{formatDate(payment.paid_on)}</td>
+                    <td className="py-1 pr-2 text-ink-900/70">
+                      {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}
+                      {payment.reference ? ` · ${payment.reference}` : ""}
+                    </td>
+                    <td className="py-1 text-right">{formatMoney(Number(payment.amount), currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <dl className="mt-2 space-y-1">
+              <div className="flex justify-between">
+                <dt className="text-ink-900/65">Amount paid</dt>
+                <dd>{formatMoney(paid, currency)}</dd>
+              </div>
+              <div className="flex justify-between border-t border-ink-900/30 pt-1 text-[14px] font-semibold">
+                <dt>Balance due</dt>
+                <dd>{formatMoney(Math.max(0, balance), currency)}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+      )}
+
+      {isInvoice && project && (
+        <section className="mt-6 rounded border border-ink-900/15 p-3 text-[12px]">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-900/60">Project billing summary</p>
+          <div className="mt-1 grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-ink-900/60">Quotation {project.quoteNumber}</p>
+              <p className="font-semibold">{formatMoney(project.quoteTotal, currency)}</p>
+            </div>
+            <div>
+              <p className="text-ink-900/60">Invoiced to date</p>
+              <p className="font-semibold">{formatMoney(project.invoicedToDate, currency)}</p>
+            </div>
+            <div>
+              <p className="text-ink-900/60">Remaining to be invoiced</p>
+              <p className="font-semibold">{formatMoney(Math.max(0, project.quoteTotal - project.invoicedToDate), currency)}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mt-8 space-y-4 border-t border-ink-900/15 pt-5 text-[12px]">
         {settings.billing_bank_details && isInvoice && (

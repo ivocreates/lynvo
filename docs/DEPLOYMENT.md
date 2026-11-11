@@ -18,10 +18,33 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 RESEND_API_KEY=
 CONTACT_NOTIFICATION_TO=
-SITE_URL=
+SITE_URL=https://lynvo.studio
+APP_URL=https://app.lynvo.studio
+STUDIO_URL=https://lynvo.studio
+TECH_URL=https://lynvo.tech
 ```
 
 Service role and Resend credentials remain server-only. Configure exact Auth redirect URLs and email templates in Supabase. Deploy on a platform that supports the current Next.js App Router server runtime.
+
+## Domains
+
+One Worker serves three domains. `middleware.ts` routes by host (see `lib/sites.ts`):
+
+| Domain | Serves | Notes |
+| --- | --- | --- |
+| `app.lynvo.studio` | `/admin`, `/staff`, `/client` | `/` redirects to `/admin`; marketing paths redirect to lynvo.studio; never indexed |
+| `lynvo.studio` | `app/(public)` | Platform paths redirect to app.lynvo.studio |
+| `lynvo.tech` | `app/tech` (rewritten from `/`) | Platform paths redirect to app; `/verify/*` and `/careers` redirect to lynvo.studio |
+
+Any other host (localhost, `*.workers.dev`) serves every route unchanged, so the tech site is at `/tech` locally.
+
+Setup:
+
+1. Add `APP_URL`, `STUDIO_URL` and `TECH_URL` to the Worker runtime variables (and `SITE_URL=https://lynvo.studio`).
+2. Attach all three domains (plus `www.` variants) to the Worker under **Settings → Domains & Routes**, or uncomment `routes` in `wrangler.toml`.
+3. In Supabase **Authentication → URL configuration**, set Site URL to `https://app.lynvo.studio` and add `https://app.lynvo.studio/**` to the redirect allow-list. Invites and password resets now link to `APP_URL`.
+4. Set `SPLIT_DOMAINS=1` in the Worker runtime variables. Until then app.lynvo.studio keeps serving the public pages as well, so nothing breaks before lynvo.studio and lynvo.tech are attached.
+5. Run migrations `0027` to `0031` in order (`supabase db push`, or paste each into the SQL editor). `0027` only adds enum values and must be committed before `0028` runs.
 
 ## Cloudflare Workers
 

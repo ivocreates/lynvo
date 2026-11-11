@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { getSiteUrl } from "@/lib/env";
+import { getStudioUrl } from "@/lib/env";
 import SectionStamp from "@/components/ui/section-stamp";
 import QrCode from "@/components/documents/qr-code";
 import {
@@ -39,7 +39,7 @@ async function lookup(code: string): Promise<VerifiedCertificate | null> {
 export default async function VerifyCertificatePage({ params }: { params: { code: string } }) {
   const code = decodeURIComponent(params.code);
   const certificate = await lookup(code);
-  const url = verifyUrl(getSiteUrl("https://lynvo.tech"), code);
+  const url = verifyUrl(getStudioUrl(), code);
 
   return (
     <div className="container-page py-20">
