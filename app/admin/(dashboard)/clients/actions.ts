@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
+import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
 import { provisionAccount } from "@/lib/admin/invites";
 import { getSiteUrl } from "@/lib/env";
 import {
@@ -68,7 +68,7 @@ function readClient(formData: FormData) {
 }
 
 export async function createClientRecord(formData: FormData) {
-  const actor = await requireStaff();
+  const actor = await requirePermission("clients.manage");
 
   const parsed = readClient(formData);
   if (!parsed.success) return;
@@ -88,7 +88,7 @@ export async function createClientRecord(formData: FormData) {
 }
 
 export async function updateClientRecord(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const parsed = readClient(formData);
@@ -132,7 +132,7 @@ const engagementSchema = z.object({
 });
 
 export async function saveEngagement(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
@@ -168,7 +168,7 @@ export async function saveEngagement(formData: FormData) {
 }
 
 export async function deleteEngagement(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
@@ -185,7 +185,7 @@ export async function deleteEngagement(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 export async function saveMilestone(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const engagementId = String(formData.get("engagement_id") ?? "");
@@ -217,7 +217,7 @@ export async function saveMilestone(formData: FormData) {
 }
 
 export async function deleteMilestone(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
@@ -234,7 +234,7 @@ export async function deleteMilestone(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 export async function saveDeliverable(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const engagementId = String(formData.get("engagement_id") ?? "");
@@ -272,7 +272,7 @@ export async function saveDeliverable(formData: FormData) {
 }
 
 export async function deleteDeliverable(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
@@ -289,7 +289,7 @@ export async function deleteDeliverable(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 export async function saveReport(formData: FormData) {
-  const actor = await requireStaff();
+  const actor = await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
@@ -321,7 +321,7 @@ export async function saveReport(formData: FormData) {
 }
 
 export async function deleteReport(formData: FormData) {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");

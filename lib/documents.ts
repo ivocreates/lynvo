@@ -1,25 +1,56 @@
-export type DocType = "contract" | "offer_letter" | "nda" | "policy" | "letter";
+export type DocType =
+  | "contract"
+  | "offer_letter"
+  | "appointment"
+  | "nda"
+  | "policy"
+  | "letter"
+  | "payslip"
+  | "certificate"
+  | "recommendation"
+  | "relieving";
 export type DocStatus = "draft" | "issued" | "archived";
 export type DocAudience = "individual" | "team" | "employees" | "interns";
 
-export const DOC_TYPES: DocType[] = ["contract", "offer_letter", "nda", "policy", "letter"];
+export const DOC_TYPES: DocType[] = [
+  "contract",
+  "offer_letter",
+  "appointment",
+  "nda",
+  "policy",
+  "letter",
+  "payslip",
+  "certificate",
+  "recommendation",
+  "relieving",
+];
 export const DOC_STATUSES: DocStatus[] = ["draft", "issued", "archived"];
 export const DOC_AUDIENCES: DocAudience[] = ["individual", "team", "employees", "interns"];
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   contract: "Employment contract",
   offer_letter: "Offer letter",
+  appointment: "Appointment letter",
   nda: "NDA",
   policy: "Policy",
   letter: "Letter",
+  payslip: "Payslip",
+  certificate: "Experience certificate",
+  recommendation: "Letter of recommendation",
+  relieving: "Relieving letter",
 };
 
 export const DOC_TYPE_HEADINGS: Record<DocType, string> = {
   contract: "EMPLOYMENT CONTRACT",
   offer_letter: "LETTER OF OFFER",
+  appointment: "LETTER OF APPOINTMENT",
   nda: "NON-DISCLOSURE AGREEMENT",
   policy: "COMPANY POLICY",
   letter: "LETTER",
+  payslip: "SALARY SLIP",
+  certificate: "EXPERIENCE CERTIFICATE",
+  recommendation: "LETTER OF RECOMMENDATION",
+  relieving: "RELIEVING LETTER",
 };
 
 export const DOC_AUDIENCE_LABELS: Record<DocAudience, string> = {
@@ -114,6 +145,7 @@ export type DocBlock =
   | { kind: "list"; items: string[] }
   | { kind: "ordered"; items: string[] }
   | { kind: "pagebreak" }
+  | { kind: "table"; rows: string[][] }
   | { kind: "paragraph"; text: string };
 
 /** Marker an author types on its own line to start a new printed page. */
@@ -128,12 +160,15 @@ export function parseDocumentBody(body: string): DocBlock[] {
   const blocks: DocBlock[] = [];
   let list: string[] | null = null;
   let ordered: string[] | null = null;
+  let table: string[][] | null = null;
 
   const flush = () => {
     if (list) blocks.push({ kind: "list", items: list });
     if (ordered) blocks.push({ kind: "ordered", items: ordered });
+    if (table) blocks.push({ kind: "table", rows: table });
     list = null;
     ordered = null;
+    table = null;
   };
 
   for (const rawLine of body.replace(/\r\n/g, "\n").split("\n")) {
@@ -149,6 +184,17 @@ export function parseDocumentBody(body: string): DocBlock[] {
       blocks.push({ kind: "pagebreak" });
       continue;
     }
+
+    // | cell | cell | rows form a table; |---| separator rows are skipped.
+    if (line.startsWith("|")) {
+      if (list || ordered) flush();
+      const cells = line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+      if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) continue;
+      table = table ?? [];
+      table.push(cells);
+      continue;
+    }
+    if (table) flush();
 
     if (line.startsWith("## ")) {
       flush();
@@ -185,9 +231,14 @@ export function suggestReference(prefix: string, doc_type: DocType, sequence: nu
   const codes: Record<DocType, string> = {
     contract: "CON",
     offer_letter: "OFR",
+    appointment: "APT",
     nda: "NDA",
     policy: "POL",
     letter: "LTR",
+    payslip: "PAY",
+    certificate: "EXP",
+    recommendation: "LOR",
+    relieving: "REL",
   };
   return `${prefix || "LYNVO/HR"}/${codes[doc_type]}/${new Date().getFullYear()}/${String(sequence).padStart(3, "0")}`;
 }

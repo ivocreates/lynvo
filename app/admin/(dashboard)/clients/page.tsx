@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import PageHeader from "@/components/admin/page-header";
 import { ENGAGEMENT_LABELS, ENGAGEMENT_STYLES, type Client, type Engagement } from "@/lib/clients";
@@ -16,7 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function ClientsPage() {
-  await requireStaff();
+  await requirePermission("clients.manage");
 
   const supabase = createClient();
   const [{ data: clientRows }, { data: engagementRows }] = await Promise.all([

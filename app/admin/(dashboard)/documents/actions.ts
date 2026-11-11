@@ -6,7 +6,17 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, recordAudit } from "@/lib/auth";
 import { HR_DOCUMENT_SETTING_KEYS } from "@/lib/admin/billing";
-import { DOC_AUDIENCES, DOC_STATUSES, DOC_TYPES, type DocAudience, type DocStatus, type DocType } from "@/lib/documents";
+import {
+  DOC_AUDIENCES,
+  DOC_STATUSES,
+  DOC_TYPES,
+  suggestReference,
+  type DocAudience,
+  type DocStatus,
+  type DocType,
+} from "@/lib/documents";
+import { formatFieldValues, getTemplate, renderTemplate } from "@/lib/legal-templates";
+import { companyValues, readFieldValues, staffValues } from "@/lib/legal-autofill";
 
 export type DocumentSettingsState = { ok: boolean; message: string };
 
@@ -111,6 +121,77 @@ export async function createDocument(formData: FormData) {
 
   revalidatePath("/admin/documents");
   redirect(`/admin/documents/${created.id}?saved=1`);
+}
+
+/** Generates an HR document draft from a template, auto-filled for one team member. */
+export async function createFromTemplate(formData: FormData) {
+  const actor = await requireManager();
+
+  const templateKey = String(formData.get("template") ?? "");
+  const personId = String(formData.get("person_id") ?? "");
+  const back = `/admin/documents/templates?template=${encodeURIComponent(templateKey)}&person=${personId}`;
+
+  const template = getTemplate(templateKey);
+  if (!template || template.audience !== "staff" || !template.docType) failure("/admin/documents/templates", "Choose a template.");
+  if (!z.string().uuid().safeParse(personId).success) failure("/admin/documents/templates", "Choose a team member.");
+
+  const [company, staff] = await Promise.all([companyValues(), staffValues(personId)]);
+  if (!staff) failure("/admin/documents/templates", "Team member not found.");
+
+  const raw = readFieldValues(template!, formData);
+  const missing = template!.fields.find((field) => field.required && !raw[field.key]);
+  if (missing) failure(back, `${missing.label} is required.`);
+
+  const body = renderTemplate(template!.body, { ...company, ...staff!.party, ...formatFieldValues(template!, raw) });
+
+  const supabase = createClient();
+  const [{ data: latest }, { data: prefixRow }] = await Promise.all([
+    supabase
+      .from("staff_documents")
+      .select("reference")
+      .not("reference", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("site_settings").select("value").eq("key", "doc_reference_prefix").maybeSingle(),
+  ]);
+  const lastSequence = Number(String((latest as { reference?: string } | null)?.reference ?? "").match(/(\d+)$/)?.[1] ?? 0);
+  const prefix = (prefixRow as { value: { text?: string } | null } | null)?.value?.text ?? "";
+
+  const effectiveFrom = raw.start_date || raw.effective_date || null;
+  const effectiveTo = raw.end_date || raw.last_day || null;
+  const base = {
+    title: `${template!.title} — ${staff!.party.name}${raw.pay_month ? ` (${raw.pay_month})` : ""}`,
+    doc_type: template!.docType!,
+    audience: "individual" as const,
+    body,
+    recipient_id: personId,
+    issue_date: new Date().toISOString().slice(0, 10),
+    effective_from: effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom) ? effectiveFrom : null,
+    effective_to: effectiveTo && /^\d{4}-\d{2}-\d{2}$/.test(effectiveTo) ? effectiveTo : null,
+    signature_required: template!.signature,
+    created_by: actor.id,
+  };
+
+  let created: { id: string } | null = null;
+  let message = "Could not create the document. Has migration 0027 been run?";
+  for (let attempt = 0; attempt < 5 && !created; attempt += 1) {
+    const { data, error } = await supabase
+      .from("staff_documents")
+      .insert({ ...base, reference: suggestReference(prefix, template!.docType!, lastSequence + 1 + attempt) })
+      .select("id")
+      .maybeSingle();
+    if (data) created = data as { id: string };
+    else if (error?.code !== "23505") {
+      message = error?.message ?? message;
+      break;
+    }
+  }
+  if (!created) failure(back, message);
+
+  await recordAudit("create", "staff_documents", created!.id, { template: template!.key });
+  revalidatePath("/admin/documents");
+  redirect(`/admin/documents/${created!.id}?saved=1`);
 }
 
 export async function updateDocument(formData: FormData) {

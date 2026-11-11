@@ -6,6 +6,7 @@ import {
   type StaffDocument,
 } from "@/lib/documents";
 import type { BillingSettings } from "@/lib/admin/billing";
+import DocumentBody from "./document-body";
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -116,61 +117,7 @@ export default function DocumentLetterhead({
 
       <h1 className="mt-6 font-display text-lg font-semibold">{doc.title}</h1>
 
-      <section className="mt-4 space-y-3">
-        {blocks.map((block, index) => {
-          switch (block.kind) {
-            case "pagebreak":
-              return (
-                <div
-                  key={index}
-                  aria-hidden
-                  className="break-after-page my-8 border-t border-dashed border-ink-900/25 print:my-0 print:border-0"
-                />
-              );
-            case "heading":
-              return (
-                <h2 key={index} className="mt-5 break-after-avoid font-display text-base font-semibold">
-                  {block.text}
-                </h2>
-              );
-            case "subheading":
-              return (
-                <h3
-                  key={index}
-                  className="mt-4 break-after-avoid text-[13px] font-semibold uppercase tracking-wide text-ink-900/80"
-                >
-                  {block.text}
-                </h3>
-              );
-            case "list":
-              return (
-                <ul key={index} className="list-disc space-y-1 pl-5">
-                  {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex} className="break-inside-avoid">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              );
-            case "ordered":
-              return (
-                <ol key={index} className="list-decimal space-y-1 pl-5">
-                  {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex} className="break-inside-avoid">
-                      {item}
-                    </li>
-                  ))}
-                </ol>
-              );
-            default:
-              return (
-                <p key={index} className="break-inside-avoid text-justify">
-                  {block.text}
-                </p>
-              );
-          }
-        })}
-      </section>
+      <DocumentBody blocks={blocks} />
 
       <section className="mt-12 flex flex-wrap justify-between gap-10 break-inside-avoid text-[12px]">
         <div className="flex flex-wrap gap-6">

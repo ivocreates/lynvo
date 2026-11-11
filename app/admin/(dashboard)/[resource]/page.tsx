@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff, hasRole } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
+import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
 import PageHeader from "@/components/admin/page-header";
 import SearchInput from "@/components/admin/search-input";
@@ -26,7 +27,7 @@ export default async function ResourceListPage({
   const resource = getResource(params.resource);
   if (!resource) notFound();
 
-  const profile = await requireStaff();
+  const profile = await requireResourceAccess(params.resource);
   const canDelete = hasRole(profile, "admin");
 
   const supabase = createClient();

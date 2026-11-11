@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole, recordAudit } from "@/lib/auth";
+import { requirePermission, recordAudit } from "@/lib/auth";
 import { calculateTotals, currencyForRegion, nextDocumentNumber, parseLineItems, readRegion } from "@/lib/admin/billing";
 import type { BillingState } from "@/app/admin/(dashboard)/billing/actions";
 
@@ -31,7 +31,7 @@ export async function saveStaffQuote(
   _prev: BillingState,
   formData: FormData
 ): Promise<BillingState> {
-  const profile = await requireRole("employee");
+  const profile = await requirePermission("billing.draft");
 
   const id = String(formData.get("__id") ?? "").trim();
   const clientName = String(formData.get("client_name") ?? "").trim();
@@ -108,7 +108,7 @@ export async function saveStaffQuote(
 }
 
 export async function deleteStaffQuote(formData: FormData) {
-  const profile = await requireRole("employee");
+  const profile = await requirePermission("billing.draft");
 
   const id = String(formData.get("__id") ?? "").trim();
   if (!id) return;

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, ReceiptText, LifeBuoy } from "lucide-react";
+import { LayoutDashboard, FileText, ReceiptText, LifeBuoy, FileSignature } from "lucide-react";
 
 const NAV = [
   { href: "/client", label: "Overview", icon: LayoutDashboard },
-  { href: "/client/quotes", label: "Quotes & invoices", icon: ReceiptText },
+  { href: "/client/quotes", label: "Billing & account", icon: ReceiptText },
+  { href: "/client/documents", label: "Agreements", icon: FileSignature },
   { href: "/client/reports", label: "Reports", icon: FileText },
   { href: "/contact", label: "Get in touch", icon: LifeBuoy },
 ];

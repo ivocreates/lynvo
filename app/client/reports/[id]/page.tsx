@@ -1,4 +1,5 @@
 import Link from "next/link";
+import DocumentBody from "@/components/documents/document-body";
 import { notFound } from "next/navigation";
 import { requireClient } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -32,48 +33,8 @@ export default async function ClientReportPage({ params }: { params: { id: strin
         {formatPeriod(report.period_start, report.period_end)}
       </p>
 
-      <article className="mt-8 space-y-3 rounded-card border border-border bg-surface p-6">
-        {blocks.map((block, index) => {
-          switch (block.kind) {
-            case "heading":
-              return (
-                <h2 key={index} className="mt-5 font-display text-xl font-semibold text-ink-900">
-                  {block.text}
-                </h2>
-              );
-            case "subheading":
-              return (
-                <h3 key={index} className="mt-4 text-sm font-semibold uppercase tracking-wide text-text-primary/80">
-                  {block.text}
-                </h3>
-              );
-            case "list":
-              return (
-                <ul key={index} className="list-disc space-y-1 pl-5 text-text-primary/80">
-                  {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>{item}</li>
-                  ))}
-                </ul>
-              );
-            case "ordered":
-              return (
-                <ol key={index} className="list-decimal space-y-1 pl-5 text-text-primary/80">
-                  {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>{item}</li>
-                  ))}
-                </ol>
-              );
-            default:
-              if (block.kind === "pagebreak") {
-                return <hr key={index} aria-hidden className="my-6 border-border" />;
-              }
-              return (
-                <p key={index} className="leading-7 text-text-primary/80">
-                  {block.text}
-                </p>
-              );
-          }
-        })}
+      <article className="mt-8 rounded-card border border-border bg-surface p-6 text-text-primary/85">
+        <DocumentBody blocks={blocks} />
       </article>
     </div>
   );

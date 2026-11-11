@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/admin/billing";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
@@ -17,7 +17,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default async function StaffQuotesPage({ searchParams }: { searchParams: { saved?: string } }) {
-  const profile = await requireRole("employee");
+  const profile = await requirePermission("billing.draft");
 
   const supabase = createClient();
   const { data } = await supabase

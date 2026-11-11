@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireManager, hasRole } from "@/lib/auth";
 import { ROLES, STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
@@ -35,6 +36,17 @@ export default async function PeoplePage() {
         title="People"
         description="Invite the team, set roles, and keep employment details current."
       />
+
+      {canInvite && (
+        <p className="mb-6 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-primary/80">
+          Roles set the baseline. To give someone extra modules — e.g. Marketing &amp; sales for your marketing hire, or Quotes &amp;
+          invoices for a junior — use{" "}
+          <Link href="/admin/access" className="text-brand-700 underline">
+            Access &amp; permissions
+          </Link>
+          .
+        </p>
+      )}
 
       {canInvite && <InviteForm actorRole={actor.role} />}
 

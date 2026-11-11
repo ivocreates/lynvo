@@ -27,6 +27,10 @@ export const BILLING_CATEGORIES = [
   "Advanced Features",
   "AI",
   "Branding",
+  "Brand Identity",
+  "Stationery",
+  "Graphic Design",
+  "Motion & Video",
   "Content",
   "Testing",
   "Training",
@@ -73,10 +77,215 @@ export const DOC_STATUSES = [
   { value: "draft", label: "Draft" },
   { value: "sent", label: "Sent" },
   { value: "accepted", label: "Accepted" },
+  { value: "partially_paid", label: "Partially paid" },
   { value: "paid", label: "Paid" },
   { value: "overdue", label: "Overdue" },
   { value: "cancelled", label: "Cancelled" },
 ];
+
+/** Statuses a person may pick by hand; paid / partially paid follow recorded payments. */
+export const MANUAL_STATUSES: Record<DocType, string[]> = {
+  quote: ["draft", "sent", "accepted", "cancelled"],
+  invoice: ["draft", "sent", "cancelled"],
+};
+
+export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  DOC_STATUSES.map((status) => [status.value, status.label])
+);
+
+export const STATUS_TONES: Record<string, string> = {
+  draft: "border-border bg-canvas-warm text-text-primary/70",
+  sent: "border-brand-700/40 bg-brand-700/10 text-brand-700",
+  accepted: "border-success/40 bg-success/10 text-success",
+  partially_paid: "border-sand-400/60 bg-sand-400/20 text-clay-500",
+  paid: "border-success/40 bg-success/10 text-success",
+  overdue: "border-error/40 bg-error/10 text-error",
+  cancelled: "border-border bg-border/40 text-text-primary/50",
+};
+
+export type InvoiceKind = "standard" | "advance" | "milestone" | "balance" | "recurring";
+
+export const INVOICE_KIND_LABELS: Record<InvoiceKind, string> = {
+  standard: "Full invoice",
+  advance: "Advance invoice",
+  milestone: "Milestone invoice",
+  balance: "Balance invoice",
+  recurring: "Recurring invoice",
+};
+
+export const PAYMENT_METHODS = [
+  { value: "bank_transfer", label: "Bank transfer / NEFT / IMPS" },
+  { value: "upi", label: "UPI" },
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "cheque", label: "Cheque" },
+  { value: "gateway", label: "Payment gateway" },
+  { value: "other", label: "Other" },
+];
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = Object.fromEntries(
+  PAYMENT_METHODS.map((method) => [method.value, method.label])
+);
+
+export const SUBSCRIPTION_CYCLES = [
+  { value: "monthly", label: "Monthly", months: 1 },
+  { value: "quarterly", label: "Quarterly", months: 3 },
+  { value: "half_yearly", label: "Half-yearly", months: 6 },
+  { value: "yearly", label: "Yearly", months: 12 },
+] as const;
+
+export type SubscriptionCycle = (typeof SUBSCRIPTION_CYCLES)[number]["value"];
+
+export function cycleMonths(cycle: string) {
+  return SUBSCRIPTION_CYCLES.find((entry) => entry.value === cycle)?.months ?? 1;
+}
+
+export function cycleLabel(cycle: string) {
+  return SUBSCRIPTION_CYCLES.find((entry) => entry.value === cycle)?.label ?? cycle;
+}
+
+/** Adds whole months to an ISO date, clamping to the last day of shorter months. */
+export function addMonths(isoDate: string, months: number) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+export function addDays(isoDate: string, days: number) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export const todayIso = () => new Date().toISOString().slice(0, 10);
+
+/** Invoices past their due date with money outstanding read as overdue. */
+export function effectiveStatus(doc: {
+  doc_type: string;
+  status: string;
+  due_date: string | null;
+  balance_due?: number | string | null;
+}) {
+  const balance = Number(doc.balance_due ?? 0);
+  if (
+    doc.doc_type === "invoice" &&
+    ["sent", "partially_paid", "overdue"].includes(doc.status) &&
+    doc.due_date &&
+    doc.due_date < todayIso() &&
+    balance > 0
+  ) {
+    return "overdue";
+  }
+  return doc.status;
+}
+
+/** Statuses that count as money owed to LYNVO. */
+export const RECEIVABLE_STATUSES = ["sent", "partially_paid", "overdue"];
+
+export type ConversionMode = "full" | "percent" | "amount" | "balance";
+
+export interface ConversionInput {
+  quote: {
+    number: string;
+    subtotal: number;
+    discount_amount: number;
+    tax_amount: number;
+    total: number;
+    currency: string;
+  };
+  items: LineItem[];
+  mode: ConversionMode;
+  /** Percentage for "percent", tax-inclusive amount for "amount". */
+  value: number;
+  /** Sum of totals of earlier, non-cancelled invoices raised from this quote. */
+  alreadyInvoiced: number;
+}
+
+export type ConversionResult =
+  | { ok: true; kind: InvoiceKind; items: LineItem[]; discount: number; summary: string }
+  | { ok: false; message: string };
+
+/**
+ * Turns an accepted quote into the line items of an invoice. Partial invoices
+ * become one line at the quote's blended tax rate so the tax stays consistent
+ * with what the client agreed to.
+ */
+export function buildInvoiceFromQuote(input: ConversionInput): ConversionResult {
+  const { quote, items, mode, value, alreadyInvoiced } = input;
+  const oneOff = items.filter((item) => item.recurring === "one_time");
+  const taxable = round(Number(quote.subtotal) - Number(quote.discount_amount));
+  const blendedRate = taxable > 0 ? round((Number(quote.tax_amount) / taxable) * 100) : 0;
+  const remaining = round(Number(quote.total) - alreadyInvoiced);
+  const reference = `Against quotation ${quote.number} (project value ${formatMoney(Number(quote.total), quote.currency)})`;
+
+  if (mode === "full") {
+    if (alreadyInvoiced > 0) {
+      return { ok: false, message: "Part of this quote is already invoiced. Use the remaining balance option instead." };
+    }
+    if (oneOff.length === 0) return { ok: false, message: "This quote has no one-time items to invoice." };
+    return {
+      ok: true,
+      kind: "standard",
+      items: oneOff.map((item) => ({ ...item, line_total: round(item.quantity * item.unit_price) })),
+      discount: Number(quote.discount_amount),
+      summary: `Full invoice for quotation ${quote.number}`,
+    };
+  }
+
+  if (remaining <= 0) return { ok: false, message: "This quote has already been invoiced in full." };
+
+  let target: number;
+  let name: string;
+  let kind: InvoiceKind;
+
+  if (mode === "balance") {
+    target = remaining;
+    name = "Balance payment";
+    kind = "balance";
+  } else if (mode === "percent") {
+    if (!(value > 0 && value <= 100)) return { ok: false, message: "Enter a percentage between 1 and 100." };
+    target = round((Number(quote.total) * value) / 100);
+    kind = alreadyInvoiced > 0 ? "milestone" : "advance";
+    name = `${kind === "advance" ? "Advance payment" : "Milestone payment"} (${value}%)`;
+  } else {
+    if (!(value > 0)) return { ok: false, message: "Enter an amount greater than zero." };
+    target = round(value);
+    kind = alreadyInvoiced > 0 ? "milestone" : "advance";
+    name = kind === "advance" ? "Advance payment" : "Milestone payment";
+  }
+
+  if (target > remaining + 0.01) {
+    return {
+      ok: false,
+      message: `That is more than the ${formatMoney(remaining, quote.currency)} still to be invoiced on this quote.`,
+    };
+  }
+
+  const preTax = round(target / (1 + blendedRate / 100));
+
+  return {
+    ok: true,
+    kind,
+    discount: 0,
+    summary: `${name} for quotation ${quote.number}`,
+    items: [
+      {
+        name,
+        description: reference,
+        category: "Other",
+        recurring: "one_time",
+        unit: "payment",
+        hsn_sac: oneOff.find((item) => item.hsn_sac)?.hsn_sac ?? null,
+        quantity: 1,
+        unit_price: preTax,
+        tax_rate: blendedRate,
+        line_total: preTax,
+      },
+    ],
+  };
+}
 
 export type SettingGroup = {
   title: string;
@@ -129,6 +338,8 @@ export const BILLING_SETTING_GROUPS: SettingGroup[] = [
       { key: "billing_invoice_terms", label: "Default invoice terms", type: "textarea" },
       { key: "billing_bank_details", label: "Bank / payment details", type: "textarea" },
       { key: "billing_payment_terms", label: "Default payment schedule", type: "textarea", help: "Printed on quotations, e.g. 40% advance / 60% before deployment." },
+      { key: "billing_advance_percent", label: "Default advance %", type: "text", help: "Pre-filled when converting an accepted quote into an advance invoice." },
+      { key: "billing_receipt_note", label: "Payment receipt note", type: "textarea", help: "Printed at the foot of payment receipts." },
       { key: "billing_support_policy", label: "Post-delivery support policy", type: "textarea" },
       { key: "billing_third_party_note", label: "Third-party cost note", type: "textarea" },
     ],
@@ -155,6 +366,14 @@ export const HR_DOCUMENT_SETTING_GROUPS: SettingGroup[] = [
       { key: "doc_second_signatory_title", label: "Second designated partner title", type: "text" },
       { key: "doc_stamp_url", label: "HR document stamp / seal", type: "image", help: "Overrides the billing stamp on HR documents." },
       { key: "doc_footer_note", label: "Document footer note", type: "textarea" },
+    ],
+  },
+  {
+    title: "Legal templates",
+    description: "Used when generating client agreements and HR letters from templates.",
+    keys: [
+      { key: "legal_jurisdiction", label: "Jurisdiction (city, state)", type: "text", help: "Printed as \"the courts at …\" in every agreement, e.g. Panaji, Goa." },
+      { key: "legal_reference_prefix", label: "Agreement reference prefix", type: "text", help: "e.g. LYNVO/LGL" },
     ],
   },
 ];

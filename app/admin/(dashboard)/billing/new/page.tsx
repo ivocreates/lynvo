@@ -1,4 +1,4 @@
-import { requireStaff } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog, getClientOptions } from "@/lib/admin/catalog";
 import type { DocType } from "@/lib/admin/billing";
@@ -8,9 +8,9 @@ import BillingForm from "@/components/admin/billing-form";
 export default async function NewBillingDocumentPage({
   searchParams,
 }: {
-  searchParams: { type?: string };
+  searchParams: { type?: string; client?: string };
 }) {
-  await requireStaff();
+  await requirePermission("billing.manage");
 
   const docType: DocType = searchParams.type === "invoice" ? "invoice" : "quote";
   const [settings, catalog, clients] = await Promise.all([
@@ -33,6 +33,7 @@ export default async function NewBillingDocumentPage({
         presets={catalog.presets}
         packages={catalog.packages}
         clients={clients}
+        initialClientId={searchParams.client}
         defaults={{
           currency: settings.billing_currency || "INR",
           terms: docType === "invoice" ? settings.billing_invoice_terms : settings.billing_quote_terms,

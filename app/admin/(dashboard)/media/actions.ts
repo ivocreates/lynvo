@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff, requireAdmin, recordAudit } from "@/lib/auth";
+import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
 
 const BUCKET = "public-media";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -11,7 +11,7 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/s
 export type MediaState = { ok: boolean; message: string };
 
 export async function uploadMedia(_prev: MediaState, formData: FormData): Promise<MediaState> {
-  const profile = await requireStaff();
+  const profile = await requirePermission("website");
 
   const file = formData.get("file");
   const altText = String(formData.get("alt_text") ?? "").trim();

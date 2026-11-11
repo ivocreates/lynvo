@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/auth";
 
@@ -23,6 +24,42 @@ export async function reviewDeliverable(formData: FormData) {
     .eq("id", id);
 
   revalidatePath("/client");
+}
+
+/** Client accepts a sent quotation; recorded with their typed name and a timestamp. */
+export async function acceptQuote(formData: FormData) {
+  await requireClient();
+
+  const id = String(formData.get("id") ?? "");
+  const signer = String(formData.get("signer") ?? "").trim().slice(0, 120);
+  const agreed = formData.get("agree") === "on";
+
+  if (!id) return;
+  if (!agreed || signer.length < 2) redirect(`/client/quotes/${id}?error=confirm`);
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("client_accept_quote", { doc: id, signer });
+
+  revalidatePath("/client/quotes");
+  revalidatePath("/client");
+  redirect(`/client/quotes/${id}?${error || !data ? "error=accept" : "accepted=1"}`);
+}
+
+/** Client e-signs an agreement: typed name + designation, timestamped by the database. */
+export async function signAgreement(formData: FormData) {
+  await requireClient();
+
+  const id = String(formData.get("id") ?? "");
+  const signer = String(formData.get("signer") ?? "").trim().slice(0, 120);
+  const designation = String(formData.get("designation") ?? "").trim().slice(0, 120);
+  if (!id) return;
+  if (formData.get("agree") !== "on" || signer.length < 2) redirect(`/client/documents/${id}?error=confirm`);
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("client_sign_agreement", { agreement: id, signer, designation });
+
+  revalidatePath("/client/documents");
+  redirect(`/client/documents/${id}?${error || !data ? "error=sign" : "signed=1"}`);
 }
 
 export async function submitReview(_prev: ReviewState, formData: FormData): Promise<ReviewState> {

@@ -105,7 +105,7 @@ export default async function DocumentsPage({
       <PageHeader
         stamp="HR"
         title="Documents"
-        description="Contracts, offer letters, NDAs, and policies on the LYNVO letterhead."
+        description="Offer letters, agreements, NDAs, payslips, certificates and policies on the LYNVO letterhead."
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
@@ -114,6 +114,12 @@ export default async function DocumentsPage({
           className="inline-flex rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
         >
           New document
+        </Link>
+        <Link
+          href="/admin/documents/templates"
+          className="inline-flex rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900"
+        >
+          From template
         </Link>
         <Link href="/admin/documents/settings" className="rounded-card border border-border px-4 py-2 text-sm hover:bg-surface">
           Formatting &amp; partners

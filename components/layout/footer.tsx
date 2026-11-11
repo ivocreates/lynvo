@@ -12,12 +12,12 @@ const studioLinks = [
 ] as const;
 
 const serviceLinks = [
-  ["Web Development", "/services/web-development"],
-  ["UI/UX Design", "/services/ui-ux-brand-design"],
+  ["Websites", "/services/web-development"],
   ["Brand Identity", "/services/brand-identity-graphics"],
-  ["SEO", "/services/seo-geo-optimization"],
-  ["VAPT & Security", "/services/vapt-security-audits"],
-  ["Web3 & Blockchain", "/services/web3-blockchain"],
+  ["UI/UX Design", "/services/ui-ux-brand-design"],
+  ["SEO & Google", "/services/seo-geo-optimization"],
+  ["Social Media", "/services/social-media-management"],
+  ["Software & Security → LYNVO Tech", "https://lynvo.tech"],
 ] as const;
 
 const workLinks = [

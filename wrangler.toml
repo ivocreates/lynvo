@@ -10,3 +10,14 @@ keep_vars = true
 [assets]
 binding = "ASSETS"
 directory = ".open-next/assets"
+
+# One Worker serves all three domains; middleware.ts routes by host.
+# Attach each domain under Workers & Pages -> lynvo-webapp -> Settings ->
+# Domains & Routes, or uncomment to let `wrangler deploy` attach them.
+# routes = [
+#   { pattern = "app.lynvo.studio", custom_domain = true },
+#   { pattern = "lynvo.studio", custom_domain = true },
+#   { pattern = "www.lynvo.studio", custom_domain = true },
+#   { pattern = "lynvo.tech", custom_domain = true },
+#   { pattern = "www.lynvo.tech", custom_domain = true },
+# ]

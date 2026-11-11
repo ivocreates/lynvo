@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, UserCog, ListChecks, Target, FileText, FolderLock, ReceiptText } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
+import type { Permission } from "@/lib/permissions";
 
-const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
+const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role; permission?: Permission }[] = [
   { href: "/staff", label: "Overview", icon: LayoutDashboard },
   { href: "/staff/tasks", label: "My tasks", icon: ListChecks },
-  { href: "/staff/quotes", label: "My quotes", icon: ReceiptText, minRole: "employee" },
+  { href: "/staff/quotes", label: "My quotes", icon: ReceiptText, permission: "billing.draft" },
   { href: "/staff/goals", label: "Goals", icon: Target },
   { href: "/staff/notes", label: "Notes", icon: FileText },
   { href: "/staff/documents", label: "My documents", icon: FolderLock },
@@ -16,9 +17,13 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?
   { href: "/staff/profile", label: "My profile", icon: UserCog },
 ];
 
-export default function StaffSidebar({ role }: { role: Role }) {
+export default function StaffSidebar({ role, permissions }: { role: Role; permissions: Permission[] }) {
   const pathname = usePathname();
-  const visible = NAV.filter((item) => !item.minRole || ROLE_RANK[role] >= ROLE_RANK[item.minRole]);
+  const visible = NAV.filter(
+    (item) =>
+      (!item.minRole || ROLE_RANK[role] >= ROLE_RANK[item.minRole]) &&
+      (!item.permission || permissions.includes(item.permission))
+  );
 
   return (
     <nav aria-label="Staff" className="p-4">

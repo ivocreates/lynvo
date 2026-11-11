@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, hasRole } from "@/lib/auth";
+import { requirePermission, hasRole } from "@/lib/auth";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import { updateContactStatus, deleteContact } from "./actions";
+import { leadFromContact } from "../crm/actions";
 
 const STATUSES = ["new", "read", "replied", "archived"] as const;
 
@@ -19,7 +20,7 @@ export default async function ContactsPage({
 }: {
   searchParams: { status?: string };
 }) {
-  const profile = await requireAdmin();
+  const profile = await requirePermission("crm");
   const canDelete = hasRole(profile, "super_admin");
   const active = searchParams.status;
 
@@ -39,9 +40,9 @@ export default async function ContactsPage({
   return (
     <div>
       <PageHeader
-        stamp="LEADS"
-        title="Contacts"
-        description="Enquiries submitted through the public contact form."
+        stamp="SALES"
+        title="Website enquiries"
+        description="Enquiries from the lynvo.studio and lynvo.tech contact forms. Add promising ones to the pipeline."
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -136,6 +137,13 @@ export default async function ContactsPage({
                 >
                   Reply
                 </a>
+
+                <form action={leadFromContact}>
+                  <input type="hidden" name="contact_id" value={contact.id} />
+                  <button type="submit" className="rounded-card bg-brand-700 px-3 py-1.5 text-sm font-medium text-text-inverse hover:bg-ink-900">
+                    Add to pipeline
+                  </button>
+                </form>
 
                 {canDelete && (
                   <form action={deleteContact} className="ml-auto">

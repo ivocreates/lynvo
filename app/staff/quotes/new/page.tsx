@@ -1,11 +1,11 @@
-import { requireRole } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog } from "@/lib/admin/catalog";
 import BillingForm from "@/components/admin/billing-form";
 import { saveStaffQuote } from "../actions";
 
 export default async function NewStaffQuotePage() {
-  await requireRole("employee");
+  await requirePermission("billing.draft");
 
   const [settings, catalog] = await Promise.all([getBillingSettings(), getCatalog()]);
 
@@ -19,6 +19,7 @@ export default async function NewStaffQuotePage() {
 
       <div className="mt-8">
         <BillingForm
+          cancelHref="/staff/quotes"
           docType="quote"
           presets={catalog.presets}
           packages={catalog.packages}
