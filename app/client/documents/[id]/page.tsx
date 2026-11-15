@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PrintButton from "@/components/admin/print-button";
 import SubmitButton from "@/components/admin/submit-button";
@@ -22,10 +22,10 @@ export default async function ClientAgreementPage({
 }) {
   const profile = await requireClient();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data }, { data: client }, settings] = await Promise.all([
-    supabase.from("client_agreements").select("*").eq("id", params.id).eq("client_id", profile.client_id).maybeSingle(),
-    supabase.from("clients").select("name").eq("id", profile.client_id).maybeSingle(),
+    db.from("client_agreements").select("*").eq("id", params.id).eq("client_id", profile.client_id).maybeSingle(),
+    db.from("clients").select("name").eq("id", profile.client_id).maybeSingle(),
     getBillingSettings(),
   ]);
   if (!data) notFound();

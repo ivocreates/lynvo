@@ -3,9 +3,19 @@ main = ".open-next/worker.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Without this, every `wrangler deploy` deletes the runtime variables set in the
-# Cloudflare dashboard, which silently breaks all Supabase reads.
+# Keep variables and secrets set in the Cloudflare dashboard across deploys
+# (BETTER_AUTH_SECRET, RESEND_API_KEY, SPLIT_DOMAINS...).
 keep_vars = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lynvo-db"
+database_id = "4d645849-6b8b-483e-b3c8-2d79e2055c1a"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "lynvo-media"
 
 [assets]
 binding = "ASSETS"
@@ -24,12 +34,10 @@ directory = ".open-next/assets"
 # ...
 [vars]
 APP_URL = "https://app.lynvo.studio/"
-NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6dnRwaWFnYW5tZ2R4ZmJwcXNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjU0ODEsImV4cCI6MjEwMjQ0MTQ4MX0.FscuuXafSE-Y5GssYuGcA23Str-PjH15LpLYZX1hhtg"
-NEXT_PUBLIC_SUPABASE_URL = "https://izvtpiaganmgdxfbpqso.supabase.co"
 SITE_URL = "https://app.lynvo.studio"
 STUDIO_URL = "https://lynvo.studio/"
 TECH_URL = "https://lynvo.tech/"
-# Secrets (SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, CONTACT_NOTIFICATION_TO)
+# Secrets (BETTER_AUTH_SECRET, RESEND_API_KEY, CONTACT_NOTIFICATION_TO)
 # must NOT live here: this file is committed, and any value here overrides the
 # dashboard. Set them as encrypted secrets: `npx wrangler secret put NAME` or
 # Workers & Pages -> lynvo-webapp -> Settings -> Variables and Secrets.

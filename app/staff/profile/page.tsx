@@ -1,6 +1,6 @@
 import { requireTeamMember } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import StaffProfileForm from "@/components/staff/profile-form";
 
 export const metadata = { title: "My profile" };
@@ -8,8 +8,8 @@ export const metadata = { title: "My profile" };
 export default async function StaffProfilePage() {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("profiles")
     .select("display_name, phone, bio, skills")
     .eq("id", profile.id)

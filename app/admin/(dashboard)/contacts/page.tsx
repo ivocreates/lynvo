@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
@@ -24,8 +24,8 @@ export default async function ContactsPage({
   const canDelete = hasRole(profile, "super_admin");
   const active = searchParams.status;
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from("contacts")
     .select("*")
     .order("created_at", { ascending: false })

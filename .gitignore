@@ -9,3 +9,5 @@ out
 .open-next
 *.tsbuildinfo
 supabase/.temp
+.dev.vars
+migration-data*.sql

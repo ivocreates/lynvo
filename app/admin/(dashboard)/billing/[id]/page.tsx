@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import {
   INVOICE_KIND_LABELS,
@@ -80,8 +80,8 @@ export default async function BillingDocumentHub({
   const profile = await requirePermission("billing.manage");
   const isAdmin = hasRole(profile, "admin");
 
-  const supabase = createClient();
-  const { data: row } = await supabase.from("billing_documents").select("*").eq("id", params.id).maybeSingle();
+  const db = createClient();
+  const { data: row } = await db.from("billing_documents").select("*").eq("id", params.id).maybeSingle();
   if (!row) notFound();
 
   const doc = row as unknown as Doc;
@@ -93,20 +93,20 @@ export default async function BillingDocumentHub({
 
   const [{ data: itemRows }, { data: linkedRows }, { data: paymentRows }, { data: sourceRow }, advanceSetting] =
     await Promise.all([
-      supabase.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", doc.id).order("position"),
+      db.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", doc.id).order("position"),
       // Quote: its invoices. Invoice: siblings raised from the same quote.
-      supabase
+      db
         .from("billing_documents")
         .select("id, number, status, total, balance_due, invoice_kind, issue_date, due_date, doc_type")
         .eq("source_quote_id", isQuote ? doc.id : doc.source_quote_id ?? "00000000-0000-0000-0000-000000000000")
         .order("issue_date"),
       isQuote
         ? Promise.resolve({ data: [] })
-        : supabase.from("billing_payments").select("*").eq("document_id", doc.id).order("paid_on"),
+        : db.from("billing_payments").select("*").eq("document_id", doc.id).order("paid_on"),
       doc.source_quote_id
-        ? supabase.from("billing_documents").select("id, number, total, currency").eq("id", doc.source_quote_id).maybeSingle()
+        ? db.from("billing_documents").select("id, number, total, currency").eq("id", doc.source_quote_id).maybeSingle()
         : Promise.resolve({ data: null }),
-      getSetting(supabase, "billing_advance_percent"),
+      getSetting(db, "billing_advance_percent"),
     ]);
 
   const items = normaliseItems(itemRows);

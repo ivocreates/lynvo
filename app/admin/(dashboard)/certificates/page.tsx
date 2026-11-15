@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getStudioUrl } from "@/lib/env";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { CERTIFICATE_SETTING_GROUPS } from "@/lib/admin/billing";
@@ -34,10 +34,10 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function CertificatesPage({ searchParams }: { searchParams?: { sent?: string } }) {
   await requireManager();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: certRows }, { data: peopleRows }, settings] = await Promise.all([
-    supabase.from("certificates").select("*").order("created_at", { ascending: false }).limit(200),
-    supabase
+    db.from("certificates").select("*").order("created_at", { ascending: false }).limit(200),
+    db
       .from("profiles")
       .select("id, display_name, email, title, department, joined_on, ends_on")
       .eq("is_active", true),

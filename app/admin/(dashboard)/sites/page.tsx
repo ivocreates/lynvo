@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { getStudioUrl, getTechUrl } from "@/lib/env";
 import { SITE_COPY_GROUPS } from "@/lib/admin/settings";
@@ -10,8 +10,8 @@ import { saveSiteCopy } from "./actions";
 export default async function SitesPage() {
   await requirePermission("website");
 
-  const supabase = createClient();
-  const { data } = await supabase.from("site_settings").select("key, value");
+  const db = createClient();
+  const { data } = await db.from("site_settings").select("key, value");
   const values: Record<string, string> = {};
   for (const row of (data ?? []) as { key: string; value: { text?: string } | null }[]) values[row.key] = row.value?.text ?? "";
 

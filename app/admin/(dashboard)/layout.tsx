@@ -4,6 +4,10 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { signOut } from "@/app/admin/actions";
 import Sidebar from "@/components/admin/sidebar";
 
+
+// Per-user pages: always rendered on request.
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { profile, permissions } = await requireConsoleAccess();
 

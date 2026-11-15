@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createBrowserSupabase } from "@/lib/supabase/client";
-import { useSupabaseConfig } from "@/components/providers/supabase-config";
+import { authClient } from "@/lib/auth-client";
 
 const LINK_ERRORS: Record<string, string> = {
   invalid_link: "That link is not valid. Request a new password reset email.",
@@ -14,12 +13,11 @@ const LINK_ERRORS: Record<string, string> = {
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const config = useSupabaseConfig();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const linkError = LINK_ERRORS[searchParams.get("error") ?? ""] ?? null;
-  const setupRequired = searchParams.get("setup") === "1";
+  const resetDone = searchParams.get("reset") === "1";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,18 +28,17 @@ export default function LoginForm() {
     const email = String(formData.get("email"));
     const password = String(formData.get("password"));
 
-    const supabase = createBrowserSupabase(config.url, config.anonKey);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await authClient.signIn.email({ email, password });
 
     setLoading(false);
 
     if (signInError) {
-      setError("Invalid email or password.");
+      setError(signInError.status === 429 ? "Too many attempts. Wait a minute and try again." : "Invalid email or password.");
       return;
     }
 
-    // The destination layout redirects staff, interns, and clients onwards.
-    router.push("/admin");
+    // Sends team members, staff and clients to their own workspace.
+    router.push("/auth/landing");
     router.refresh();
   }
 
@@ -50,11 +47,11 @@ export default function LoginForm() {
       onSubmit={handleSubmit}
       className="w-full max-w-sm rounded-card border border-border bg-surface p-8"
     >
-      <p className="section-stamp mb-2">ADMIN ACCESS</p>
+      <p className="section-stamp mb-2">LYNVO ACCOUNT</p>
       <h1 className="font-display text-2xl font-semibold text-ink-900">Sign in</h1>
-      {setupRequired && (
-        <p className="mt-4 rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
-          Supabase is not configured for this Cloudflare deployment. Add the Supabase URL and publishable key to the Worker build and runtime variables.
+      {resetDone && (
+        <p className="mt-4 rounded-card border border-success/40 bg-success/10 px-4 py-3 text-sm text-success" role="status">
+          Password updated. Sign in with your new password.
         </p>
       )}
       <div className="mt-6 space-y-4">

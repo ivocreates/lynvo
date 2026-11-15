@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { cycleLabel, cycleMonths, formatMoney, todayIso } from "@/lib/admin/billing";
 import { getClientOptions } from "@/lib/admin/catalog";
@@ -22,9 +22,9 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
   const isAdmin = hasRole(profile, "admin");
   const today = todayIso();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data, error }, clients] = await Promise.all([
-    supabase
+    db
       .from("client_subscriptions")
       .select("*, clients(name)")
       .order("status")

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { formatMoney } from "@/lib/admin/billing";
 import { formatLongDate, type LegalTemplate } from "@/lib/legal-templates";
@@ -12,8 +12,8 @@ const iso = (value: string | null | undefined) => (value ? String(value).slice(0
 /** Company letterhead values shared by every template. */
 export async function companyValues(): Promise<Values> {
   const settings = await getBillingSettings();
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("site_settings")
     .select("key, value")
     .in("key", ["legal_jurisdiction", "legal_reference_prefix"]);
@@ -41,14 +41,14 @@ export async function companyValues(): Promise<Values> {
 
 /** Client, project and quote values; raw field defaults (dates as ISO, money as numbers). */
 export async function clientValues(clientId: string, engagementId?: string | null, quoteId?: string | null) {
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: client }, { data: engagement }, { data: quote }] = await Promise.all([
-    supabase.from("clients").select("*").eq("id", clientId).maybeSingle(),
+    db.from("clients").select("*").eq("id", clientId).maybeSingle(),
     engagementId
-      ? supabase.from("client_engagements").select("*").eq("id", engagementId).maybeSingle()
+      ? db.from("client_engagements").select("*").eq("id", engagementId).maybeSingle()
       : Promise.resolve({ data: null }),
     quoteId
-      ? supabase.from("billing_documents").select("number, total, currency").eq("id", quoteId).maybeSingle()
+      ? db.from("billing_documents").select("number, total, currency").eq("id", quoteId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -81,8 +81,8 @@ export async function clientValues(clientId: string, engagementId?: string | nul
 
 /** Staff member values; reporting manager resolved from manager_id. */
 export async function staffValues(profileId: string) {
-  const supabase = createClient();
-  const { data: person } = await supabase
+  const db = createClient();
+  const { data: person } = await db
     .from("profiles")
     .select("id, display_name, email, title, department, employment_type, joined_on, ends_on, phone, manager_id")
     .eq("id", profileId)
@@ -92,7 +92,7 @@ export async function staffValues(profileId: string) {
 
   let managerName = "";
   if (p.manager_id) {
-    const { data: manager } = await supabase.from("profiles").select("display_name, email").eq("id", p.manager_id).maybeSingle();
+    const { data: manager } = await db.from("profiles").select("display_name, email").eq("id", p.manager_id).maybeSingle();
     managerName = (manager as { display_name: string | null; email: string } | null)?.display_name ?? "";
   }
 

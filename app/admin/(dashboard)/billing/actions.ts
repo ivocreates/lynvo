@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
-import { getSupabaseUrl } from "@/lib/env";
+import { createClient } from "@/lib/db/server";
+import { requirePermission, requireAdmin, recordAudit, getCurrentProfile } from "@/lib/auth";
+import { uploadImage } from "@/lib/storage";
 import {
   BILLING_SETTING_KEYS,
   MANUAL_STATUSES,
@@ -89,7 +89,7 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     return value || null;
   };
 
-  const supabase = createClient();
+  const db = createClient();
   const region = readRegion(formData.get("region"));
 
   let clientId = text("client_id");
@@ -98,7 +98,7 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
   // "Create a client account" is on by default so every client ends up with one.
   if (!clientId && formData.get("create_client") === "on") {
     clientId = await ensureClientAccount(
-      supabase,
+      db,
       {
         name: clientName,
         email: text("client_email"),
@@ -140,7 +140,7 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
   let documentId = id;
 
   if (id) {
-    const { data: current } = await supabase
+    const { data: current } = await db
       .from("billing_documents")
       .select("status, amount_paid")
       .eq("id", id)
@@ -152,22 +152,22 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
       (current && ["paid", "partially_paid"].includes((current as { status: string }).status) && requestedStatus !== "cancelled");
 
     const update = keepStatus ? values : { ...values, status: requestedStatus };
-    let { error } = await supabase.from("billing_documents").update({ ...update, ...discountMeta }).eq("id", id);
+    let { error } = await db.from("billing_documents").update({ ...update, ...discountMeta }).eq("id", id);
     // discount_percent / offer_code arrive with migration 0032.
-    if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await supabase.from("billing_documents").update(update).eq("id", id));
+    if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await db.from("billing_documents").update(update).eq("id", id));
     if (error) return { ok: false, message: friendlyError(error.message) };
 
-    await supabase.from("billing_document_items").delete().eq("document_id", documentId);
-    const { error: itemsError } = await supabase
+    await db.from("billing_document_items").delete().eq("document_id", documentId);
+    const { error: itemsError } = await db
       .from("billing_document_items")
       .insert(items.map((item, index) => ({ ...item, document_id: documentId, position: index })));
     if (itemsError) return { ok: false, message: "Saved the document but could not save its line items." };
 
     // Totals may have changed; re-derive paid status against the new total.
-    await supabase.rpc("refresh_billing_document_payments", { doc: id });
+    await db.rpc("refresh_billing_document_payments", { doc: id });
   } else {
     const result = await insertDocument(
-      supabase,
+      db,
       {
         ...values,
         status: MANUAL_STATUSES[docType].includes(requestedStatus) ? requestedStatus : "draft",
@@ -179,7 +179,7 @@ export async function saveDocument(_prev: BillingState, formData: FormData): Pro
     if ("error" in result) return { ok: false, message: result.error };
     documentId = result.id;
     if (discountMeta.discount_percent || discountMeta.offer_code) {
-      await supabase.from("billing_documents").update(discountMeta).eq("id", documentId);
+      await db.from("billing_documents").update(discountMeta).eq("id", documentId);
     }
   }
 
@@ -195,8 +195,8 @@ export async function deleteDocument(formData: FormData) {
   const id = String(formData.get("__id") ?? "").trim();
   if (!id) return;
 
-  const supabase = createClient();
-  const { error } = await supabase.from("billing_documents").delete().eq("id", id);
+  const db = createClient();
+  const { error } = await db.from("billing_documents").delete().eq("id", id);
 
   if (!error) await recordAudit("delete", "billing_documents", id);
 
@@ -212,8 +212,8 @@ export async function setDocumentStatus(formData: FormData) {
   const target = back(formData, `/admin/billing/${id}`);
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  const { data: doc } = await supabase
+  const db = createClient();
+  const { data: doc } = await db
     .from("billing_documents")
     .select("doc_type, client_id")
     .eq("id", id)
@@ -223,12 +223,12 @@ export async function setDocumentStatus(formData: FormData) {
   const { doc_type, client_id } = doc as { doc_type: DocType; client_id: string | null };
   if (!MANUAL_STATUSES[doc_type].includes(status)) redirect(withFlag(target, "error=status"));
 
-  const { error } = await supabase.from("billing_documents").update({ status }).eq("id", id);
+  const { error } = await db.from("billing_documents").update({ status }).eq("id", id);
   if (error) redirect(withFlag(target, "error=status"));
 
   // Moving an invoice back from cancelled/draft must respect payments already recorded.
   if (doc_type === "invoice" && status === "sent") {
-    await supabase.rpc("refresh_billing_document_payments", { doc: id });
+    await db.rpc("refresh_billing_document_payments", { doc: id });
   }
 
   await recordAudit("status_change", "billing_documents", id, { status });
@@ -242,16 +242,16 @@ export async function duplicateDocument(formData: FormData) {
   const id = String(formData.get("__id") ?? "").trim();
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: doc }, { data: itemRows }] = await Promise.all([
-    supabase.from("billing_documents").select("*").eq("id", id).maybeSingle(),
-    supabase.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", id).order("position"),
+    db.from("billing_documents").select("*").eq("id", id).maybeSingle(),
+    db.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", id).order("position"),
   ]);
   if (!doc) redirect("/admin/billing?error=missing");
 
   const source = doc as Record<string, any>;
   const result = await insertDocument(
-    supabase,
+    db,
     {
       doc_type: source.doc_type,
       client_id: source.client_id,
@@ -297,11 +297,11 @@ export async function convertQuote(formData: FormData) {
   if (!UUID.test(quoteId)) return;
   if (!["full", "percent", "amount", "balance"].includes(mode)) fail("Choose how much to invoice.");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: quoteRow }, { data: itemRows }, { data: priorRows }] = await Promise.all([
-    supabase.from("billing_documents").select("*").eq("id", quoteId).eq("doc_type", "quote").maybeSingle(),
-    supabase.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", quoteId).order("position"),
-    supabase
+    db.from("billing_documents").select("*").eq("id", quoteId).eq("doc_type", "quote").maybeSingle(),
+    db.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", quoteId).order("position"),
+    db
       .from("billing_documents")
       .select("total, status")
       .eq("source_quote_id", quoteId)
@@ -338,7 +338,7 @@ export async function convertQuote(formData: FormData) {
   const clientId =
     quote.client_id ??
     (await ensureClientAccount(
-      supabase,
+      db,
       {
         name: quote.client_name,
         email: quote.client_email,
@@ -350,11 +350,11 @@ export async function convertQuote(formData: FormData) {
       profile.id
     ));
 
-  const invoiceTerms = await getSetting(supabase, "billing_invoice_terms");
+  const invoiceTerms = await getSetting(db, "billing_invoice_terms");
   const today = todayIso();
 
   const result = await insertDocument(
-    supabase,
+    db,
     {
       doc_type: "invoice",
       status: issueNow ? "sent" : "draft",
@@ -387,14 +387,14 @@ export async function convertQuote(formData: FormData) {
   if (["draft", "sent"].includes(quote.status)) quoteUpdates.status = "accepted";
   if (!quote.client_id && clientId) quoteUpdates.client_id = clientId;
   if (Object.keys(quoteUpdates).length > 0) {
-    await supabase.from("billing_documents").update(quoteUpdates).eq("id", quoteId);
+    await db.from("billing_documents").update(quoteUpdates).eq("id", quoteId);
   }
 
   // Recurring quote lines (maintenance, hosting, retainers) become subscriptions once.
   if (createSubscriptions && clientId && alreadyInvoiced === 0) {
     const recurring = items.filter((item) => item.recurring !== "one_time");
     if (recurring.length > 0) {
-      await supabase.from("client_subscriptions").insert(
+      await db.from("client_subscriptions").insert(
         recurring.map((item: LineItem) => ({
           client_id: clientId,
           name: item.name,
@@ -430,8 +430,8 @@ export async function recordPayment(formData: FormData) {
   const target = back(formData, `/admin/billing/${documentId}`);
   if (!UUID.test(documentId)) return;
 
-  const supabase = createClient();
-  const { data: doc } = await supabase
+  const db = createClient();
+  const { data: doc } = await db
     .from("billing_documents")
     .select("doc_type, status, total, amount_paid, client_id")
     .eq("id", documentId)
@@ -458,7 +458,7 @@ export async function recordPayment(formData: FormData) {
 
   // A draft invoice that gets paid has evidently been issued.
   if (invoice.status === "draft") {
-    await supabase.from("billing_documents").update({ status: "sent" }).eq("id", documentId);
+    await db.from("billing_documents").update({ status: "sent" }).eq("id", documentId);
   }
 
   const row = {
@@ -470,7 +470,7 @@ export async function recordPayment(formData: FormData) {
     notes: text("notes"),
     recorded_by: profile.id,
   };
-  let { data: payment, error } = await supabase
+  let { data: payment, error } = await db
     .from("billing_payments")
     .insert((tds > 0 ? { ...row, tds_amount: tds } : row) as Record<string, unknown>)
     .select("id")
@@ -495,12 +495,12 @@ export async function updatePayment(formData: FormData) {
   const target = back(formData, "/admin/billing/payments");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  const { data: current } = await supabase.from("billing_payments").select("*").eq("id", id).maybeSingle();
+  const db = createClient();
+  const { data: current } = await db.from("billing_payments").select("*").eq("id", id).maybeSingle();
   if (!current) redirect(withFlag(target, "error=missing"));
   const payment = current as { document_id: string; client_id: string | null; amount: number; tds_amount?: number };
 
-  const { data: doc } = await supabase.from("billing_documents").select("total, amount_paid").eq("id", payment.document_id).maybeSingle();
+  const { data: doc } = await db.from("billing_documents").select("total, amount_paid").eq("id", payment.document_id).maybeSingle();
   const invoice = doc as { total: number; amount_paid: number } | null;
 
   const amount = cents(formData.get("amount"));
@@ -527,7 +527,7 @@ export async function updatePayment(formData: FormData) {
   };
   if ("tds_amount" in (current as object)) values.tds_amount = tds;
 
-  const { error } = await supabase.from("billing_payments").update(values).eq("id", id);
+  const { error } = await db.from("billing_payments").update(values).eq("id", id);
   if (error) redirect(withFlag(target, `error=${encodeURIComponent("Could not update the payment.")}`));
 
   await recordAudit("payment_update", "billing_payments", id, { amount, paid_on: paidOn });
@@ -553,11 +553,11 @@ export async function recordAdvance(formData: FormData) {
   const method = String(formData.get("method") ?? "bank_transfer");
   if (!(amount + tds > 0)) fail("Enter the advance amount received.");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: quoteRow }, { data: itemRows }, { data: priorRows }] = await Promise.all([
-    supabase.from("billing_documents").select("*").eq("id", quoteId).eq("doc_type", "quote").maybeSingle(),
-    supabase.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", quoteId).order("position"),
-    supabase.from("billing_documents").select("total, status").eq("source_quote_id", quoteId).eq("doc_type", "invoice"),
+    db.from("billing_documents").select("*").eq("id", quoteId).eq("doc_type", "quote").maybeSingle(),
+    db.from("billing_document_items").select(ITEM_COLUMNS).eq("document_id", quoteId).order("position"),
+    db.from("billing_documents").select("total, status").eq("source_quote_id", quoteId).eq("doc_type", "invoice"),
   ]);
   if (!quoteRow) fail("Quote not found.");
   const quote = quoteRow as Record<string, any>;
@@ -586,13 +586,13 @@ export async function recordAdvance(formData: FormData) {
   const clientId =
     quote.client_id ??
     (await ensureClientAccount(
-      supabase,
+      db,
       { name: quote.client_name, email: quote.client_email, phone: quote.client_phone, address: quote.client_address, gstin: quote.client_gstin, region: readRegion(quote.region) },
       profile.id
     ));
 
   const result = await insertDocument(
-    supabase,
+    db,
     {
       doc_type: "invoice",
       status: "sent",
@@ -620,7 +620,7 @@ export async function recordAdvance(formData: FormData) {
   const invoice = result as { id: string; number: string };
 
   // Rounding to the quote's tax rate can move the total by a few paise; settle exactly.
-  const { data: created } = await supabase.from("billing_documents").select("total").eq("id", invoice.id).maybeSingle();
+  const { data: created } = await db.from("billing_documents").select("total").eq("id", invoice.id).maybeSingle();
   const invoiceTotal = Number((created as { total: number } | null)?.total ?? amount + tds);
   const received = Math.min(amount, Math.max(0, invoiceTotal - tds));
 
@@ -633,13 +633,13 @@ export async function recordAdvance(formData: FormData) {
     notes: "Advance received",
     recorded_by: profile.id,
   };
-  const { error: paymentError } = await supabase.from("billing_payments").insert((tds > 0 ? { ...payment, tds_amount: tds } : payment) as Record<string, unknown>);
+  const { error: paymentError } = await db.from("billing_payments").insert((tds > 0 ? { ...payment, tds_amount: tds } : payment) as Record<string, unknown>);
   if (paymentError) fail(`Invoice ${invoice.number} was created but the payment could not be recorded. Record it on the invoice.`);
 
   const quoteUpdates: Record<string, unknown> = {};
   if (["draft", "sent"].includes(quote.status)) quoteUpdates.status = "accepted";
   if (!quote.client_id && clientId) quoteUpdates.client_id = clientId;
-  if (Object.keys(quoteUpdates).length) await supabase.from("billing_documents").update(quoteUpdates).eq("id", quoteId);
+  if (Object.keys(quoteUpdates).length) await db.from("billing_documents").update(quoteUpdates).eq("id", quoteId);
 
   await recordAudit("advance", "billing_documents", invoice.id, { quote: quoteId, amount: received, tds });
   revalidateBilling(quoteId, clientId);
@@ -653,13 +653,13 @@ export async function deletePayment(formData: FormData) {
   const target = back(formData, "/admin/billing/payments");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  const { data: payment } = await supabase
+  const db = createClient();
+  const { data: payment } = await db
     .from("billing_payments")
     .select("document_id, client_id")
     .eq("id", id)
     .maybeSingle();
-  await supabase.from("billing_payments").delete().eq("id", id);
+  await db.from("billing_payments").delete().eq("id", id);
 
   await recordAudit("payment_delete", "billing_payments", id);
   const row = payment as { document_id: string; client_id: string | null } | null;
@@ -704,10 +704,10 @@ export async function saveSubscription(formData: FormData) {
     updated_at: new Date().toISOString(),
   };
 
-  const supabase = createClient();
+  const db = createClient();
   const { error } = id
-    ? await supabase.from("client_subscriptions").update(values).eq("id", id)
-    : await supabase.from("client_subscriptions").insert({ ...values, created_by: profile.id });
+    ? await db.from("client_subscriptions").update(values).eq("id", id)
+    : await db.from("client_subscriptions").insert({ ...values, created_by: profile.id });
 
   if (error) redirect(withFlag(target, `error=${encodeURIComponent("Could not save the subscription.")}`));
 
@@ -724,8 +724,8 @@ export async function deleteSubscription(formData: FormData) {
   const target = back(formData, "/admin/billing/subscriptions");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  await supabase.from("client_subscriptions").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_subscriptions").delete().eq("id", id);
   await recordAudit("delete", "client_subscriptions", id);
   revalidatePath("/admin/billing/subscriptions");
   redirect(withFlag(target, "saved=1"));
@@ -739,8 +739,8 @@ export async function invoiceSubscription(formData: FormData) {
   const target = back(formData, "/admin/billing/subscriptions");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  const { data: row } = await supabase
+  const db = createClient();
+  const { data: row } = await db
     .from("client_subscriptions")
     .select("*, clients(name, email, phone, address, gstin, region)")
     .eq("id", id)
@@ -761,10 +761,10 @@ export async function invoiceSubscription(formData: FormData) {
     new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   const today = todayIso();
-  const invoiceTerms = await getSetting(supabase, "billing_invoice_terms");
+  const invoiceTerms = await getSetting(db, "billing_invoice_terms");
 
   const result = await insertDocument(
-    supabase,
+    db,
     {
       doc_type: "invoice",
       status: formData.get("issue_now") === "on" ? "sent" : "draft",
@@ -806,7 +806,7 @@ export async function invoiceSubscription(formData: FormData) {
   if ("error" in result) redirect(withFlag(target, `error=${encodeURIComponent(result.error)}`));
   const invoice = result as { id: string; number: string };
 
-  await supabase
+  await db
     .from("client_subscriptions")
     .update({ next_invoice_on: addMonths(periodStart, months), last_invoice_id: invoice.id, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -827,14 +827,14 @@ export async function saveBillingSettings(
 ): Promise<BillingSettingsState> {
   await requireAdmin();
 
-  const supabase = createClient();
+  const db = createClient();
   const rows = BILLING_SETTING_KEYS.map((key) => ({
     key,
     value: { text: String(formData.get(key) ?? "").trim() },
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+  const { error } = await db.from("site_settings").upsert(rows, { onConflict: "key" });
 
   if (error) return { ok: false, message: "Could not save billing settings." };
 
@@ -865,24 +865,12 @@ export async function uploadSettingsImage(formData: FormData): Promise<ImageUplo
     return { ok: false, message: "Use a PNG, WebP or SVG with a transparent background." };
   }
 
-  const extension = file.type === "image/svg+xml" ? "svg" : file.type.split("/")[1];
-  const path = `signatures/${crypto.randomUUID()}.${extension}`;
+  const profile = await getCurrentProfile();
+  const result = await uploadImage(file, "signatures", profile?.id ?? "", "Signature / stamp", IMAGE_TYPES, MAX_IMAGE_BYTES);
+  if (!result.ok) return { ok: false, message: result.message };
 
-  const supabase = createClient();
-  const { error: uploadError } = await supabase.storage
-    .from("public-media")
-    .upload(path, file, { contentType: file.type, upsert: false });
-
-  if (uploadError) return { ok: false, message: "Upload failed. Check your permissions and try again." };
-
-  await supabase.from("media_assets").insert({ bucket: "public-media", path, mime_type: file.type });
-  await recordAudit("upload", "media_assets", null, { path, scope: "billing_settings" });
-
-  return {
-    ok: true,
-    message: "Uploaded.",
-    url: `${getSupabaseUrl()}/storage/v1/object/public/public-media/${path}`,
-  };
+  await recordAudit("upload", "media_assets", null, { path: result.path, scope: "billing_settings" });
+  return { ok: true, message: "Uploaded.", url: result.url };
 }
 
 function friendlyError(message: string) {

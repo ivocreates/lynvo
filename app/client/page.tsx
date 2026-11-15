@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import {
   DELIVERABLE_KIND_LABELS,
   DELIVERABLE_LABELS,
@@ -23,14 +23,14 @@ import ReviewForm from "@/components/client/review-form";
 export default async function ClientOverviewPage() {
   const profile = await requireClient();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: engagementRows }, { data: reportRows }] = await Promise.all([
-    supabase
+    db
       .from("client_engagements")
       .select("*")
       .eq("client_id", profile.client_id)
       .order("created_at", { ascending: false }),
-    supabase
+    db
       .from("client_reports")
       .select("*")
       .eq("client_id", profile.client_id)
@@ -45,8 +45,8 @@ export default async function ClientOverviewPage() {
   const [{ data: milestoneRows }, { data: deliverableRows }] =
     engagementIds.length > 0
       ? await Promise.all([
-          supabase.from("client_milestones").select("*").in("engagement_id", engagementIds).order("position"),
-          supabase.from("client_deliverables").select("*").in("engagement_id", engagementIds).order("position"),
+          db.from("client_milestones").select("*").in("engagement_id", engagementIds).order("position"),
+          db.from("client_deliverables").select("*").in("engagement_id", engagementIds).order("position"),
         ])
       : [{ data: [] }, { data: [] }];
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PrintButton from "@/components/admin/print-button";
@@ -12,9 +12,9 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function AgreementPrintPage({ params }: { params: { id: string } }) {
   await requirePermission("clients.manage");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data }, settings] = await Promise.all([
-    supabase.from("client_agreements").select("*, clients(name)").eq("id", params.id).maybeSingle(),
+    db.from("client_agreements").select("*, clients(name)").eq("id", params.id).maybeSingle(),
     getBillingSettings(),
   ]);
   if (!data) notFound();

@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember } from "@/lib/auth";
-import { getSupabaseUrl } from "@/lib/env";
+import { deleteFile, mediaUrl, putFile } from "@/lib/storage";
 
 const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
 
@@ -15,10 +15,10 @@ export async function acknowledgeDocument(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
+  const db = createClient();
   // The trigger reverts every other column for non-managers; the .or() blocks
   // acknowledgement server-side until a required signature has been uploaded.
-  await supabase
+  await db
     .from("staff_documents")
     .update({ acknowledged_at: new Date().toISOString() })
     .eq("id", id)
@@ -43,8 +43,8 @@ export async function uploadDocumentSignature(formData: FormData): Promise<Docum
     return { ok: false, message: "Only PNG signature files are accepted." };
   }
 
-  const supabase = createClient();
-  const { data: document } = await supabase
+  const db = createClient();
+  const { data: document } = await db
     .from("staff_documents")
     .select("id, acknowledged_at")
     .eq("id", id)
@@ -56,21 +56,21 @@ export async function uploadDocumentSignature(formData: FormData): Promise<Docum
   if (document.acknowledged_at) return { ok: false, message: "This document has already been acknowledged." };
 
   const path = `recipient-signatures/${profile.id}/${id}/${crypto.randomUUID()}.png`;
-  const { error: uploadError } = await supabase.storage
-    .from("public-media")
-    .upload(path, file, { contentType: "image/png", upsert: false });
+  try {
+    await putFile(path, file);
+  } catch {
+    return { ok: false, message: "Upload failed. Please try again." };
+  }
 
-  if (uploadError) return { ok: false, message: "Upload failed. Check your permissions and try again." };
-
-  const url = `${getSupabaseUrl()}/storage/v1/object/public/public-media/${path}`;
-  const { error: updateError } = await supabase
+  const url = mediaUrl(path);
+  const { error: updateError } = await db
     .from("staff_documents")
     .update({ recipient_signature_url: url, recipient_signed_at: new Date().toISOString() })
     .eq("id", id)
     .eq("recipient_id", profile.id);
 
   if (updateError) {
-    await supabase.storage.from("public-media").remove([path]);
+    await deleteFile(path).catch(() => undefined);
     return { ok: false, message: "Could not save the signature. Nothing was changed." };
   }
 

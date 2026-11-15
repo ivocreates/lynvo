@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember } from "@/lib/auth";
 
 export type ProfileState = { ok: boolean; message: string };
@@ -49,8 +49,8 @@ export async function updateOwnProfile(
     return { ok: false, message: "Check the form fields and try again." };
   }
 
-  const supabase = createClient();
-  const { error } = await supabase.from("profiles").update(parsed.data).eq("id", profile.id);
+  const db = createClient();
+  const { error } = await db.from("profiles").update(parsed.data).eq("id", profile.id);
 
   if (error) {
     return { ok: false, message: "Could not save your profile. Please try again." };

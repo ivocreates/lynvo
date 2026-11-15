@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/db/server";
+import { createAdminClient } from "@/lib/db/server";
 import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
 import { provisionAccount } from "@/lib/admin/invites";
 import { getSiteUrl } from "@/lib/env";
@@ -73,8 +73,8 @@ export async function createClientRecord(formData: FormData) {
   const parsed = readClient(formData);
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("clients")
     .insert({ ...parsed.data, created_by: actor.id })
     .select("id")
@@ -94,8 +94,8 @@ export async function updateClientRecord(formData: FormData) {
   const parsed = readClient(formData);
   if (!id || !parsed.success) return;
 
-  const supabase = createClient();
-  await supabase.from("clients").update(parsed.data).eq("id", id);
+  const db = createClient();
+  await db.from("clients").update(parsed.data).eq("id", id);
   await recordAudit("update", "clients", id);
 
   revalidatePath(`/admin/clients/${id}`);
@@ -108,8 +108,8 @@ export async function deleteClientRecord(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("clients").delete().eq("id", id);
+  const db = createClient();
+  await db.from("clients").delete().eq("id", id);
   await recordAudit("delete", "clients", id);
 
   revalidatePath("/admin/clients");
@@ -151,16 +151,16 @@ export async function saveEngagement(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
+  const db = createClient();
   const values = {
     ...parsed.data,
     delivered_at: parsed.data.status === "delivered" ? new Date().toISOString() : null,
   };
 
   if (id) {
-    await supabase.from("client_engagements").update(values).eq("id", id);
+    await db.from("client_engagements").update(values).eq("id", id);
   } else {
-    await supabase.from("client_engagements").insert({ ...values, client_id: clientId });
+    await db.from("client_engagements").insert({ ...values, client_id: clientId });
   }
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -174,8 +174,8 @@ export async function deleteEngagement(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("client_engagements").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_engagements").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
 }
@@ -205,11 +205,11 @@ export async function saveMilestone(formData: FormData) {
     completed_at: status === "done" ? new Date().toISOString() : null,
   };
 
-  const supabase = createClient();
+  const db = createClient();
   if (id) {
-    await supabase.from("client_milestones").update(values).eq("id", id);
+    await db.from("client_milestones").update(values).eq("id", id);
   } else {
-    await supabase.from("client_milestones").insert({ ...values, engagement_id: engagementId });
+    await db.from("client_milestones").insert({ ...values, engagement_id: engagementId });
   }
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -223,8 +223,8 @@ export async function deleteMilestone(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("client_milestones").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_milestones").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
 }
@@ -260,11 +260,11 @@ export async function saveDeliverable(formData: FormData) {
     delivered_at: status === "delivered" ? new Date().toISOString() : null,
   };
 
-  const supabase = createClient();
+  const db = createClient();
   if (id) {
-    await supabase.from("client_deliverables").update(values).eq("id", id);
+    await db.from("client_deliverables").update(values).eq("id", id);
   } else {
-    await supabase.from("client_deliverables").insert({ ...values, engagement_id: engagementId });
+    await db.from("client_deliverables").insert({ ...values, engagement_id: engagementId });
   }
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -278,8 +278,8 @@ export async function deleteDeliverable(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("client_deliverables").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_deliverables").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
 }
@@ -309,11 +309,11 @@ export async function saveReport(formData: FormData) {
     published_at: published ? new Date().toISOString() : null,
   };
 
-  const supabase = createClient();
+  const db = createClient();
   if (id) {
-    await supabase.from("client_reports").update(values).eq("id", id);
+    await db.from("client_reports").update(values).eq("id", id);
   } else {
-    await supabase.from("client_reports").insert({ ...values, client_id: clientId, created_by: actor.id });
+    await db.from("client_reports").insert({ ...values, client_id: clientId, created_by: actor.id });
   }
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -327,8 +327,8 @@ export async function deleteReport(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("client_reports").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_reports").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
 }
@@ -398,8 +398,8 @@ export async function revokeClientUser(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!profileId) return;
 
-  const supabase = createClient();
-  await supabase.from("profiles").update({ is_active: false }).eq("id", profileId);
+  const db = createClient();
+  await db.from("profiles").update({ is_active: false }).eq("id", profileId);
   await recordAudit("revoke_access", "profiles", profileId, { clientId });
 
   revalidatePath(`/admin/clients/${clientId}`);

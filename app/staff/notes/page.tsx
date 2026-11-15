@@ -1,5 +1,5 @@
 import { requireTeamMember } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { NOTE_VISIBILITIES, VISIBILITY_LABELS, type Note } from "@/lib/team";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import { createNote, updateNote, deleteNote } from "./actions";
@@ -13,15 +13,15 @@ const LABEL_CLASS = "block text-xs uppercase tracking-[0.18em] text-text-primary
 export default async function StaffNotesPage() {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: noteRows }, { data: peopleRows }] = await Promise.all([
-    supabase
+    db
       .from("staff_notes")
       .select("*")
       .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(200),
-    supabase.from("profiles").select("id, display_name, email"),
+    db.from("profiles").select("id, display_name, email"),
   ]);
 
   const notes = (noteRows ?? []) as Note[];

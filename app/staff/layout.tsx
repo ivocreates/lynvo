@@ -4,6 +4,10 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { signOut } from "@/app/admin/actions";
 import StaffSidebar from "@/components/staff/sidebar";
 
+
+// Per-user pages: always rendered on request.
+export const dynamic = "force-dynamic";
+
 export const metadata = { title: "Staff" };
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {

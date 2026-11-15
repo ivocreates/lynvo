@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
+import { getSessionCookie } from "better-auth/cookies";
 import { isPlatformPath, isSharedPath, siteForHost, siteHosts } from "@/lib/sites";
 
 function redirectToHost(request: NextRequest, host: string, pathname: string) {
@@ -47,7 +47,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (isPlatformPath(pathname)) return updateSession(request);
+  // Optimistic check only: pages still verify the session and role server-side.
+  const guarded = /^\/(admin|staff|client)(\/|$)/.test(pathname);
+  const publicAdmin = ["/admin/login", "/admin/reset-password", "/admin/update-password"].includes(pathname);
+  if (guarded && !publicAdmin && !getSessionCookie(request)) {
+    const login = request.nextUrl.clone();
+    login.pathname = "/admin/login";
+    login.search = "";
+    return NextResponse.redirect(login);
+  }
   return NextResponse.next();
 }
 

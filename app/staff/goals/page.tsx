@@ -1,5 +1,5 @@
 import { requireTeamMember, hasRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { GOAL_STATUSES, goalProgress, type Goal } from "@/lib/team";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import { createGoal, updateGoalProgress, deleteGoal } from "./actions";
@@ -14,10 +14,10 @@ export default async function StaffGoalsPage() {
   const profile = await requireTeamMember();
   const isManager = hasRole(profile, "junior_partner");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: goalRows }, { data: peopleRows }] = await Promise.all([
-    supabase.from("staff_goals").select("*").order("due_date", { ascending: true, nullsFirst: false }),
-    supabase.from("profiles").select("id, display_name, email").eq("is_active", true),
+    db.from("staff_goals").select("*").order("due_date", { ascending: true, nullsFirst: false }),
+    db.from("profiles").select("id, display_name, email").eq("is_active", true),
   ]);
 
   const goals = (goalRows ?? []) as Goal[];

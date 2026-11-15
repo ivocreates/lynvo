@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function ClientDocumentsPage() {
   const profile = await requireClient();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("client_agreements")
     .select("id, title, reference, status, issue_date, signature_required, signed_at")
     .eq("client_id", profile.client_id)

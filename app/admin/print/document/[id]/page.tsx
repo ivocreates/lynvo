@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember, hasRole } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PrintButton from "@/components/admin/print-button";
@@ -14,9 +13,9 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function DocumentPrintPage({ params }: { params: { id: string } }) {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
+  const db = createClient();
   // RLS decides visibility: managers see drafts, recipients see issued documents.
-  const { data } = await supabase.from("staff_documents").select("*").eq("id", params.id).maybeSingle();
+  const { data } = await db.from("staff_documents").select("*").eq("id", params.id).maybeSingle();
 
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
@@ -29,34 +28,21 @@ export default async function DocumentPrintPage({ params }: { params: { id: stri
     ? "Download & print locked until the recipient signs and acknowledges"
     : "Download & print locked until the recipient acknowledges";
 
-  const [{ data: recipientRow }, authRecipient, settings] = await Promise.all([
+  const [{ data: recipientRow }, settings] = await Promise.all([
     doc.recipient_id
-      ? supabase
+      ? db
           .from("profiles")
           .select("display_name, email, title, department, employment_type, joined_on, ends_on")
           .eq("id", doc.recipient_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    doc.recipient_id
-      ? (async () => {
-          try {
-            return await createAdminClient().auth.admin.getUserById(doc.recipient_id!);
-          } catch {
-            return { data: { user: null } };
-          }
-        })()
-      : Promise.resolve({ data: { user: null } }),
     getBillingSettings(),
   ]);
 
   const recipient = recipientRow
     ? {
         ...recipientRow,
-        display_name:
-          recipientRow.display_name ||
-          authRecipient?.data?.user?.user_metadata?.full_name ||
-          authRecipient?.data?.user?.user_metadata?.name ||
-          recipientRow.email,
+        display_name: recipientRow.display_name || recipientRow.email,
       }
     : null;
 

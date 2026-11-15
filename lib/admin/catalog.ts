@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import type { PackagePreset, PresetItem } from "@/components/admin/billing-form";
 import type { Offer } from "@/lib/admin/billing";
 
@@ -17,18 +17,18 @@ function toNumber(value: unknown) {
 
 /** Catalogue services and package presets used by the quote/invoice editor. */
 export async function getCatalog() {
-  const supabase = createClient();
+  const db = createClient();
 
   const [{ data: itemRows }, packagesWithCompare, { data: offerRows }] = await Promise.all([
-    supabase.from("billing_items").select(ITEM_COLUMNS).eq("active", true).order("order", { ascending: true }),
-    supabase.from("billing_packages").select(PACKAGE_COLUMNS_WITH_COMPARE).eq("active", true).order("order", { ascending: true }),
-    supabase.from("billing_offers").select("*").eq("active", true).order("code"),
+    db.from("billing_items").select(ITEM_COLUMNS).eq("active", true).order("order", { ascending: true }),
+    db.from("billing_packages").select(PACKAGE_COLUMNS_WITH_COMPARE).eq("active", true).order("order", { ascending: true }),
+    db.from("billing_offers").select("*").eq("active", true).order("code"),
   ]);
 
   // compare_* and billing_offers arrive with migration 0032.
   let packageRows = packagesWithCompare.data as Record<string, unknown>[] | null;
   if (packagesWithCompare.error) {
-    ({ data: packageRows } = await supabase
+    ({ data: packageRows } = await db
       .from("billing_packages")
       .select(PACKAGE_COLUMNS)
       .eq("active", true)
@@ -84,8 +84,8 @@ export async function getCatalog() {
 
 /** Client accounts a document can be addressed to; details pre-fill the Bill-to block. */
 export async function getClientOptions() {
-  const supabase = createClient();
-  const first = await supabase
+  const db = createClient();
+  const first = await db
     .from("clients")
     .select("id, name, contact_name, email, phone, address, gstin, region")
     .neq("status", "archived")
@@ -94,7 +94,7 @@ export async function getClientOptions() {
 
   // gstin / region arrive with migration 0028.
   if (first.error) {
-    ({ data } = await supabase
+    ({ data } = await db
       .from("clients")
       .select("id, name, contact_name, email, phone, address")
       .neq("status", "archived")

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import {
@@ -59,20 +59,20 @@ export default async function DocumentsPage({
   if (audience) base.set("audience", audience);
   if (signature) base.set("signature", signature);
 
-  const supabase = createClient();
-  const peopleQuery = supabase.from("profiles").select("id, display_name, email");
+  const db = createClient();
+  const peopleQuery = db.from("profiles").select("id, display_name, email");
 
   // Recipient names live on profiles, so a name/email search needs a matching id list first.
   let recipientIds: string[] = [];
   if (q) {
-    const { data: matches } = await supabase
+    const { data: matches } = await db
       .from("profiles")
       .select("id")
       .or(`display_name.ilike.%${q}%,email.ilike.%${q}%`);
     recipientIds = ((matches ?? []) as { id: string }[]).map((row) => row.id);
   }
 
-  let query = supabase.from("staff_documents").select("*").order("created_at", { ascending: false }).limit(200);
+  let query = db.from("staff_documents").select("*").order("created_at", { ascending: false }).limit(200);
 
   if (q) {
     const orParts = [`title.ilike.%${q}%`, `reference.ilike.%${q}%`];

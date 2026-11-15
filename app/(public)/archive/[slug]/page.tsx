@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import SectionStamp from "@/components/ui/section-stamp";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 export default async function CaseStudyPage({ params }: { params: { slug: string } }) {
-  const supabase = createClient();
-  const { data: project } = await supabase
+  const db = createClient();
+  const { data: project } = await db
     .from("projects")
     .select("*")
     .eq("slug", params.slug)

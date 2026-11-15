@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { can, hasRole, requirePermission } from "@/lib/auth";
 import { formatMoney, todayIso } from "@/lib/admin/billing";
 import {
@@ -50,11 +50,11 @@ export default async function LeadPage({
   const canQuote = await can(profile, "billing.manage");
   const isAdmin = hasRole(profile, "admin");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: row }, { data: activityRows }, { data: ownerRows }] = await Promise.all([
-    supabase.from("crm_leads").select("*").eq("id", params.id).maybeSingle(),
-    supabase.from("crm_activities").select("*").eq("lead_id", params.id).order("occurred_at", { ascending: false }),
-    supabase.from("profiles").select("id, display_name, email").neq("role", "client").eq("is_active", true).order("display_name"),
+    db.from("crm_leads").select("*").eq("id", params.id).maybeSingle(),
+    db.from("crm_activities").select("*").eq("lead_id", params.id).order("occurred_at", { ascending: false }),
+    db.from("profiles").select("id, display_name, email").neq("role", "client").eq("is_active", true).order("display_name"),
   ]);
   if (!row) notFound();
 

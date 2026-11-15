@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import Flash from "@/components/admin/flash";
@@ -24,9 +24,9 @@ export default async function AgreementPage({
   const profile = await requirePermission("clients.manage");
   const isAdmin = hasRole(profile, "admin");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: row }, settings] = await Promise.all([
-    supabase.from("client_agreements").select("*, clients(id, name)").eq("id", params.id).maybeSingle(),
+    db.from("client_agreements").select("*, clients(id, name)").eq("id", params.id).maybeSingle(),
     getBillingSettings(),
   ]);
   if (!row) notFound();

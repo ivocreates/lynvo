@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { formatPeriod, type ClientReport } from "@/lib/clients";
 
 export const metadata = { title: "Reports" };
@@ -8,8 +8,8 @@ export const metadata = { title: "Reports" };
 export default async function ClientReportsPage() {
   const profile = await requireClient();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("client_reports")
     .select("*")
     .eq("client_id", profile.client_id)

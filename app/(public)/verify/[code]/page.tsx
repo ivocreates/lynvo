@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getStudioUrl } from "@/lib/env";
 import SectionStamp from "@/components/ui/section-stamp";
 import QrCode from "@/components/documents/qr-code";
@@ -19,10 +19,10 @@ export const metadata: Metadata = {
 
 async function lookup(code: string): Promise<VerifiedCertificate | null> {
   try {
-    const supabase = createClient();
+    const db = createClient();
     // Reads through a security-definer function: the certificates table itself
     // is never exposed to anonymous clients.
-    const { data, error } = await supabase.rpc("verify_certificate", { p_code: code });
+    const { data, error } = await db.rpc("verify_certificate", { p_code: code });
     if (error) {
       console.error("[verify] lookup failed:", error.code, error.message);
       return null;

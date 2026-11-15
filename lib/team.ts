@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 export type TaskStatus = "todo" | "working" | "completed" | "approved" | "blocked";
 export type TaskPriority = "low" | "normal" | "high" | "urgent";
@@ -207,8 +207,8 @@ export function formatMeetingWhen(meeting: Meeting) {
 }
 
 export async function getUpcomingMeetings(isManager: boolean) {
-  const supabase = createClient();
-  const query = supabase.from("meetings").select("*").eq("is_active", true);
+  const db = createClient();
+  const query = db.from("meetings").select("*").eq("is_active", true);
   if (!isManager) query.eq("audience", "all");
 
   const { data } = await query;

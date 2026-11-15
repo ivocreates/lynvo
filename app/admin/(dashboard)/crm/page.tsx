@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { formatMoney, todayIso } from "@/lib/admin/billing";
 import {
@@ -43,8 +43,8 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
   const monthStart = `${today.slice(0, 7)}-01`;
   const mine = searchParams.mine === "1";
 
-  const supabase = createClient();
-  let leadQuery = supabase
+  const db = createClient();
+  let leadQuery = db
     .from("crm_leads")
     .select("id, company, contact_name, phone, city, status, priority, site, estimated_value, currency, next_follow_up, owner_id, updated_at")
     .order("next_follow_up", { ascending: true, nullsFirst: false })
@@ -53,8 +53,8 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
 
   const [{ data: leadRows, error }, { data: activityRows }, { data: targetRows }] = await Promise.all([
     leadQuery,
-    supabase.from("crm_activities").select("kind, outcome, occurred_at, created_by").gte("occurred_at", `${weekStart}T00:00:00`),
-    supabase.from("site_settings").select("key, value").in("key", ["crm_daily_call_target", "crm_weekly_meeting_target", "crm_monthly_won_target"]),
+    db.from("crm_activities").select("kind, outcome, occurred_at, created_by").gte("occurred_at", `${weekStart}T00:00:00`),
+    db.from("site_settings").select("key, value").in("key", ["crm_daily_call_target", "crm_weekly_meeting_target", "crm_monthly_won_target"]),
   ]);
 
   const leads = (leadRows ?? []) as Lead[];

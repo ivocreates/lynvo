@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireManager, recordAudit } from "@/lib/auth";
 import { getStudioUrl } from "@/lib/env";
 import { CERTIFICATE_SETTING_KEYS } from "@/lib/admin/billing";
@@ -69,11 +69,11 @@ export async function createCertificate(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
+  const db = createClient();
   let certificateData = parsed.data;
 
   if (parsed.data.recipient_id) {
-    const { data: person } = await supabase
+    const { data: person } = await db
       .from("profiles")
       .select("display_name")
       .eq("id", parsed.data.recipient_id)
@@ -84,7 +84,7 @@ export async function createCertificate(formData: FormData) {
     }
   }
 
-  const { data } = await supabase.from("certificates").insert(certificateData).select("id").maybeSingle();
+  const { data } = await db.from("certificates").insert(certificateData).select("id").maybeSingle();
 
   if (data) await recordAudit("create", "certificates", data.id, { name: certificateData.recipient_name });
 
@@ -98,8 +98,8 @@ export async function issueCertificate(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase
+  const db = createClient();
+  await db
     .from("certificates")
     .update({
       status: "issued",
@@ -123,8 +123,8 @@ export async function revokeCertificate(formData: FormData) {
 
   const reason = String(formData.get("revoked_reason") ?? "").trim().slice(0, 500) || null;
 
-  const supabase = createClient();
-  await supabase.from("certificates").update({ status: "revoked", revoked_reason: reason }).eq("id", id);
+  const db = createClient();
+  await db.from("certificates").update({ status: "revoked", revoked_reason: reason }).eq("id", id);
   await recordAudit("revoke", "certificates", id, { reason });
 
   revalidatePath("/admin/certificates");
@@ -137,8 +137,8 @@ export async function deleteCertificate(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("certificates").delete().eq("id", id);
+  const db = createClient();
+  await db.from("certificates").delete().eq("id", id);
   await recordAudit("delete", "certificates", id);
 
   revalidatePath("/admin/certificates");
@@ -150,8 +150,8 @@ export async function sendCertificateEmail(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  const { data } = await supabase.from("certificates").select("*").eq("id", id).maybeSingle();
+  const db = createClient();
+  const { data } = await db.from("certificates").select("*").eq("id", id).maybeSingle();
   const certificate = data as Certificate | null;
 
   if (!certificate?.recipient_email || certificate.status !== "issued" || !process.env.RESEND_API_KEY) {
@@ -198,14 +198,14 @@ export async function saveCertificateSettings(
 ): Promise<CertificateSettingsState> {
   await requireManager();
 
-  const supabase = createClient();
+  const db = createClient();
   const rows = CERTIFICATE_SETTING_KEYS.map((key) => ({
     key,
     value: { text: String(formData.get(key) ?? "").trim() },
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+  const { error } = await db.from("site_settings").upsert(rows, { onConflict: "key" });
 
   if (error) return { ok: false, message: "Could not save certificate layout." };
 

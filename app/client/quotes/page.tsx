@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import {
   INVOICE_KIND_LABELS,
   PAYMENT_METHOD_LABELS,
@@ -41,19 +41,19 @@ function sum(rows: { currency: string; amount: number }[]) {
 export default async function ClientBillingPage() {
   const profile = await requireClient();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data }, { data: paymentRows }, { data: subscriptionRows }] = await Promise.all([
-    supabase
+    db
       .from("billing_documents")
       .select("id, doc_type, number, status, issue_date, due_date, currency, total, balance_due, invoice_kind")
       .eq("client_id", profile.client_id)
       .order("issue_date", { ascending: false }),
-    supabase
+    db
       .from("billing_payments")
       .select("id, amount, currency, paid_on, method, document_id")
       .eq("client_id", profile.client_id)
       .order("paid_on", { ascending: false }),
-    supabase
+    db
       .from("client_subscriptions")
       .select("id, name, amount, currency, cycle, next_invoice_on, status")
       .eq("client_id", profile.client_id),

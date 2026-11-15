@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { signOut } from "@/app/admin/actions";
 import ClientSidebar from "@/components/client/sidebar";
+
+
+// Per-user pages: always rendered on request.
+export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Client portal", robots: { index: false, follow: false } };
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireClient();
 
-  const supabase = createClient();
-  const { data: client } = await supabase
+  const db = createClient();
+  const { data: client } = await db
     .from("clients")
     .select("name")
     .eq("id", profile.client_id)

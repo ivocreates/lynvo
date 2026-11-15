@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { clientTemplates } from "@/lib/legal-templates";
 import PageHeader from "@/components/admin/page-header";
@@ -16,10 +16,10 @@ const TONES: Record<string, string> = {
 export default async function ClientLegalPage({ params }: { params: { id: string } }) {
   await requirePermission("clients.manage");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: client }, { data: rows }] = await Promise.all([
-    supabase.from("clients").select("id, name").eq("id", params.id).maybeSingle(),
-    supabase
+    db.from("clients").select("id, name").eq("id", params.id).maybeSingle(),
+    db
       .from("client_agreements")
       .select("id, title, reference, status, issue_date, signed_at, signer_name")
       .eq("client_id", params.id)

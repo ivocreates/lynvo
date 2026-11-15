@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireManager, recordAudit } from "@/lib/auth";
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from "@/lib/team";
 
@@ -44,8 +44,8 @@ export async function createTask(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const db = createClient();
+  const { data, error } = await db
     .from("staff_tasks")
     .insert({ ...parsed.data, created_by: actor.id })
     .select("id")
@@ -66,8 +66,8 @@ export async function reviewTask(formData: FormData) {
 
   if (!id || !TASK_STATUSES.includes(status as TaskStatus)) return;
 
-  const supabase = createClient();
-  await supabase
+  const db = createClient();
+  await db
     .from("staff_tasks")
     .update({
       status,
@@ -89,8 +89,8 @@ export async function deleteTask(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("staff_tasks").delete().eq("id", id);
+  const db = createClient();
+  await db.from("staff_tasks").delete().eq("id", id);
   await recordAudit("delete", "staff_tasks", id);
 
   revalidatePath("/admin/tasks");

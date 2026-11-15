@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
-import { uploadImage } from "@/lib/storage";
+import { deleteFile, uploadImage } from "@/lib/storage";
 
 const BUCKET = "public-media";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -27,33 +27,10 @@ export async function uploadMedia(_prev: MediaState, formData: FormData): Promis
     return { ok: false, message: "Only JPEG, PNG, WebP, AVIF or SVG images are allowed." };
   }
 
-  // Server-generated path: never trust the client-supplied filename.
-  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
-  const path = `${new Date().getFullYear()}/${crypto.randomUUID()}.${extension}`;
+  const result = await uploadImage(file, "media", profile.id, altText, ALLOWED, MAX_BYTES);
+  if (!result.ok) return { ok: false, message: result.message };
 
-  const supabase = createClient();
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-
-  if (uploadError) {
-    return { ok: false, message: "Upload failed. Check your permissions and try again." };
-  }
-
-  const { error: recordError } = await supabase.from("media_assets").insert({
-    bucket: BUCKET,
-    path,
-    alt_text: altText || null,
-    mime_type: file.type,
-    created_by: profile.id,
-  });
-
-  if (recordError) {
-    await supabase.storage.from(BUCKET).remove([path]);
-    return { ok: false, message: "Could not record the upload. Nothing was saved." };
-  }
-
-  await recordAudit("upload", "media_assets", null, { path });
+  await recordAudit("upload", "media_assets", null, { path: result.path });
   revalidatePath("/admin/media");
 
   return { ok: true, message: "Uploaded." };
@@ -66,9 +43,10 @@ export async function deleteMedia(formData: FormData) {
   const path = String(formData.get("path") ?? "");
   if (!id || !path) return;
 
-  const supabase = createClient();
-  await supabase.storage.from(BUCKET).remove([path]);
-  const { error } = await supabase.from("media_assets").delete().eq("id", id);
+  const db = createClient();
+  // Legacy rows hold a bare path; new ones a /media/ key. Both live in R2 after migration.
+  await deleteFile(path.replace(/^\/?media\//, "")).catch(() => undefined);
+  const { error } = await db.from("media_assets").delete().eq("id", id);
 
   if (!error) await recordAudit("delete", "media_assets", id, { path });
 

@@ -4,12 +4,12 @@ import { notFound } from "next/navigation";
 import SectionStamp from "@/components/ui/section-stamp";
 import Markdown from "@/components/ui/markdown";
 import ProjectCta from "@/components/ui/project-cta";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBlogPosts, getSiteSettings, settingsMap } from "@/lib/queries";
 
 async function loadPost(slug: string) {
-  const supabase = createClient();
-  const { data } = await supabase.from("blog_posts").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
+  const db = createClient();
+  const { data } = await db.from("blog_posts").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
   return data as Record<string, any> | null;
 }
 

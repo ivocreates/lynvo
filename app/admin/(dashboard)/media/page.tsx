@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import PageHeader from "@/components/admin/page-header";
 import MediaUploader from "@/components/admin/media-uploader";
@@ -10,14 +10,12 @@ export default async function MediaPage() {
   const profile = await requirePermission("website");
   const canDelete = hasRole(profile, "admin");
 
-  const supabase = createClient();
-  const { data: assets } = await supabase
+  const db = createClient();
+  const { data: assets } = await db
     .from("media_assets")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200);
-
-  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public`;
 
   return (
     <div>
@@ -36,7 +34,7 @@ export default async function MediaPage() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {assets.map((asset: Record<string, any>) => {
-            const url = `${base}/${asset.bucket}/${asset.path}`;
+            const url = `/media/${asset.path}`;
 
             return (
               <li key={asset.id} className="overflow-hidden rounded-card border border-border bg-surface">

@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 const ENQUIRY_TYPES = ["project", "quote", "careers", "general"] as const;
 
@@ -80,7 +80,7 @@ export async function submitContact(
     return { success: false, message: "Please check the form fields and try again." };
   }
 
-  const supabase = createClient();
+  const db = createClient();
   const row = {
     name: parsed.data.name,
     email: parsed.data.email,
@@ -93,9 +93,9 @@ export async function submitContact(
     enquiry_type: parsed.data.enquiry_type,
     status: "new",
   };
-  let { error } = await supabase.from("contacts").insert({ ...row, site: parsed.data.site });
+  let { error } = await db.from("contacts").insert({ ...row, site: parsed.data.site });
   // Before migration 0031 there is no `site` column; keep the enquiry anyway.
-  if (error?.code === "42703") ({ error } = await supabase.from("contacts").insert(row));
+  if (error?.code === "42703") ({ error } = await db.from("contacts").insert(row));
 
   if (error) {
     console.error("[contact] insert failed:", error.code, error.message);

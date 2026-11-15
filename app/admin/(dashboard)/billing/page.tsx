@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import {
   INVOICE_KIND_LABELS,
@@ -60,8 +60,8 @@ export default async function BillingListPage({
   const today = todayIso();
   const monthStart = `${today.slice(0, 7)}-01`;
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from("billing_documents")
     .select("id, doc_type, number, status, issue_date, due_date, client_name, client_id, currency, total, balance_due, invoice_kind")
     .order("issue_date", { ascending: false })
@@ -80,9 +80,9 @@ export default async function BillingListPage({
 
   const [{ data, error }, { data: receivableRows }, { data: paymentRows }, { data: openQuoteRows }] = await Promise.all([
     query,
-    supabase.from("billing_documents").select("currency, balance_due, due_date").eq("doc_type", "invoice").in("status", RECEIVABLE_STATUSES),
-    supabase.from("billing_payments").select("currency, amount").gte("paid_on", monthStart),
-    supabase.from("billing_documents").select("currency, total").eq("doc_type", "quote").eq("status", "sent"),
+    db.from("billing_documents").select("currency, balance_due, due_date").eq("doc_type", "invoice").in("status", RECEIVABLE_STATUSES),
+    db.from("billing_payments").select("currency, amount").gte("paid_on", monthStart),
+    db.from("billing_documents").select("currency, total").eq("doc_type", "quote").eq("status", "sent"),
   ]);
 
   const rows = (data ?? []) as DocumentRow[];

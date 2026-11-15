@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireManager } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import DocumentForm from "@/components/admin/document-form";
@@ -17,16 +17,16 @@ export default async function EditDocumentPage({
 }) {
   await requireManager();
 
-  const supabase = createClient();
-  const { data } = await supabase.from("staff_documents").select("*").eq("id", params.id).maybeSingle();
+  const db = createClient();
+  const { data } = await db.from("staff_documents").select("*").eq("id", params.id).maybeSingle();
 
   if (!data) notFound();
   const doc = data as unknown as StaffDocument;
 
   const [{ data: peopleRows }, { data: recipientRow }] = await Promise.all([
-    supabase.from("profiles").select("id, display_name, email").eq("is_active", true),
+    db.from("profiles").select("id, display_name, email").eq("is_active", true),
     doc.recipient_id
-      ? supabase
+      ? db
           .from("profiles")
           .select("display_name, email, title, department, employment_type, joined_on, ends_on")
           .eq("id", doc.recipient_id)

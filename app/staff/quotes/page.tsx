@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { formatMoney } from "@/lib/admin/billing";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import { deleteStaffQuote } from "./actions";
@@ -19,8 +19,8 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function StaffQuotesPage({ searchParams }: { searchParams: { saved?: string } }) {
   const profile = await requirePermission("billing.draft");
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("billing_documents")
     .select("id, number, status, client_name, issue_date, total, currency")
     .eq("created_by", profile.id)

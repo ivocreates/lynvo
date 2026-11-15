@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireConsoleAccess, hasRole } from "@/lib/auth";
 import { RECEIVABLE_STATUSES, formatMoney, todayIso } from "@/lib/admin/billing";
 import { OPEN_STATUSES } from "@/lib/crm";
@@ -8,8 +8,8 @@ import PageHeader from "@/components/admin/page-header";
 type Metric = { label: string; value: string | number; detail: string; href: string; tone?: string };
 
 async function count(table: string, filter?: (query: any) => any) {
-  const supabase = createClient();
-  let query = supabase.from(table).select("id", { count: "exact", head: true });
+  const db = createClient();
+  let query = db.from(table).select("id", { count: "exact", head: true });
   if (filter) query = filter(query);
   const { count: total } = await query;
   return total ?? 0;
@@ -28,7 +28,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const isManager = hasRole(profile, "junior_partner");
   const today = todayIso();
   const monthStart = `${today.slice(0, 7)}-01`;
-  const supabase = createClient();
+  const db = createClient();
 
   const sections: { title: string; metrics: Metric[] }[] = [];
 
@@ -52,10 +52,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   if (has("billing.manage")) {
     const [{ data: receivables }, { data: payments }, { data: quotes }, { data: subscriptions }] = await Promise.all([
-      supabase.from("billing_documents").select("currency, balance_due, due_date").eq("doc_type", "invoice").in("status", RECEIVABLE_STATUSES),
-      supabase.from("billing_payments").select("currency, amount").gte("paid_on", monthStart),
-      supabase.from("billing_documents").select("id").eq("doc_type", "quote").eq("status", "accepted"),
-      supabase.from("client_subscriptions").select("id").eq("status", "active").lte("next_invoice_on", today),
+      db.from("billing_documents").select("currency, balance_due, due_date").eq("doc_type", "invoice").in("status", RECEIVABLE_STATUSES),
+      db.from("billing_payments").select("currency, amount").gte("paid_on", monthStart),
+      db.from("billing_documents").select("id").eq("doc_type", "quote").eq("status", "accepted"),
+      db.from("client_subscriptions").select("id").eq("status", "active").lte("next_invoice_on", today),
     ]);
     const open = (receivables ?? []) as { currency: string; balance_due: number; due_date: string | null }[];
     const overdue = open.filter((row) => row.due_date && row.due_date < today);
@@ -116,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     });
   }
 
-  const { data: recent } = await supabase
+  const { data: recent } = await db
     .from("audit_logs")
     .select("action, entity, metadata, created_at")
     .order("created_at", { ascending: false })
