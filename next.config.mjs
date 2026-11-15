@@ -37,6 +37,10 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // Image uploads (team photos, blog images) go through server actions; the default cap is 1 MB.
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   images: {
     remotePatterns: [
       {

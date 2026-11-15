@@ -4,6 +4,7 @@ import { getTechUrl } from "@/lib/env";
 import { siteForHost } from "@/lib/sites";
 import Link from "next/link";
 import SectionStamp from "@/components/ui/section-stamp";
+import Hero from "@/components/home/hero";
 import ArchiveCard from "@/components/ui/archive-card";
 import ProjectCta from "@/components/ui/project-cta";
 import {
@@ -79,78 +80,18 @@ export default async function HomePage() {
 
   return (
     <div>
-      <section className="container-page grid gap-10 py-20 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:py-24">
-        <div>
-          <SectionStamp label={heroKicker} />
-          <h1 className="max-w-3xl font-display text-4xl font-semibold text-ink-900 sm:text-5xl lg:text-6xl">
-            {heroHeadline}
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-text-primary/80">{heroDescription}</p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href="/contact"
-              className="rounded-card bg-brand-700 px-5 py-3 text-sm font-medium text-text-inverse hover:bg-ink-900"
-            >
-              {heroPrimary}
-            </Link>
-            <Link
-              href="/archive"
-              className="rounded-card border border-border px-5 py-3 text-sm font-medium text-ink-900 hover:bg-surface"
-            >
-              {heroSecondary}
-            </Link>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-3 text-xs uppercase tracking-[0.2em] text-brand-700">
-            <span>Design-led engineering</span>
-            <span>SEO-aware architecture</span>
-            <span>Launch support and growth</span>
-          </div>
-        </div>
-        <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
-          <p className="section-stamp">Studio log</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            <div className="rounded-card border border-border bg-canvas-warm p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-brand-700">Who we are</p>
-              <p className="mt-3 text-sm leading-6 text-text-primary/80">
-                A digital partner that builds, redesigns, troubleshoots, and ships for brands that want real momentum.
-              </p>
-            </div>
-            <div className="rounded-card border border-border bg-canvas-warm p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-brand-700">Availability</p>
-              <p className="mt-3 text-sm leading-6 text-text-primary/80">
-                {settings.address || "Sawantwadi, Maharashtra, India · Available for global projects"}
-              </p>
-              {settings.contact_email && (
-                <a className="mt-3 block text-sm underline underline-offset-4" href={`mailto:${settings.contact_email}`}>
-                  {settings.contact_email}
-                </a>
-              )}
-            </div>
-            <div className="rounded-card border border-border bg-canvas-warm p-4 sm:col-span-2 lg:col-span-1">
-              <p className="text-xs uppercase tracking-[0.2em] text-brand-700">Studio status</p>
-              <p className="mt-3 text-sm leading-6 text-text-primary/80">
-                {settings.footer_status || "Studio online"} - {settings.response_time || "We respond within 24 hours."}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Hero
+        kicker={heroKicker}
+        headline={heroHeadline}
+        description={heroDescription}
+        primaryCta={heroPrimary}
+        secondaryCta={heroSecondary}
+        stats={stats.map((stat) => ({ label: stat.label, value: stat.value, suffix: stat.suffix }))}
+        showcaseImage={(featuredProjects.find((project) => project.image_url) ?? projects.find((project) => project.image_url))?.image_url ?? null}
+        showcaseTitle={(featuredProjects.find((project) => project.image_url) ?? projects.find((project) => project.image_url))?.title ?? null}
+      />
 
-      {stats.length > 0 && (
-        <section className="border-y border-border bg-ink-900 py-14 text-text-inverse">
-          <div className="container-page grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.slice(0, 4).map((stat) => (
-              <div key={stat.id}>
-                <p className="font-display text-4xl font-semibold">
-                  {stat.value}
-                  {stat.suffix}
-                </p>
-                <p className="section-stamp mt-2 text-text-inverse/70">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+
 
       <section className="container-page py-16">
         <SectionStamp label="SERVICES" />

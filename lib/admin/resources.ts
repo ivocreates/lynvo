@@ -11,6 +11,7 @@ export type FieldType =
   | "tags"
   | "json"
   | "url"
+  | "image"
   | "datetime";
 
 export interface FieldConfig {
@@ -24,6 +25,9 @@ export interface FieldConfig {
   max?: number;
   /** Shown as a column in the list view. */
   inList?: boolean;
+  /** Storage folder for "image" fields. */
+  folder?: "team" | "blog" | "projects" | "services" | "media";
+  aspect?: "landscape" | "square";
 }
 
 export interface ResourceConfig {
@@ -84,7 +88,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "content", label: "Content (JSON)", type: "json", help: "Structured case-study blocks." },
       { name: "tags", label: "Tags", type: "tags", help: "Comma separated." },
       { name: "featured", label: "Featured", type: "boolean", inList: true },
-      { name: "image_url", label: "Image URL", type: "url" },
+      { name: "image_url", label: "Image", type: "image", folder: "projects" },
       SITE_FIELD,
       ...SEO_FIELDS,
     ],
@@ -106,7 +110,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "active", label: "Active", type: "boolean", inList: true },
       { name: "featured", label: "Featured", type: "boolean", inList: true },
       { name: "order", label: "Order", type: "number", min: 0, inList: true },
-      { name: "image_url", label: "Image URL", type: "url" },
+      { name: "image_url", label: "Image", type: "image", folder: "services" },
       SITE_FIELD,
       ...SEO_FIELDS,
     ],
@@ -126,7 +130,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "excerpt", label: "Excerpt", type: "textarea" },
       { name: "content", label: "Content", type: "markdown" },
       { name: "tags", label: "Tags", type: "tags" },
-      { name: "cover_image_url", label: "Cover image URL", type: "url" },
+      { name: "cover_image_url", label: "Cover image", type: "image", folder: "blog", help: "Shown at the top of the post and on the blog list. 1600×900 works best." },
       { name: "published_at", label: "Publish date", type: "datetime", inList: true, help: "Set automatically when you publish without a date." },
       SITE_FIELD,
       ...SEO_FIELDS,
@@ -146,7 +150,7 @@ export const RESOURCES: ResourceConfig[] = [
       { name: "bio", label: "Bio", type: "textarea" },
       { name: "skills", label: "Skills", type: "tags" },
       { name: "social_links", label: "Social links (JSON)", type: "json", help: '{"linkedin":"https://..."}' },
-      { name: "image_url", label: "Photo URL", type: "url" },
+      { name: "image_url", label: "Photo", type: "image", folder: "team", aspect: "square", help: "A square headshot, at least 600×600." },
       { name: "is_active", label: "Active", type: "boolean", inList: true },
       { name: "order", label: "Order", type: "number", min: 0, inList: true },
     ],

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { saveResource, type ResourceState } from "@/app/admin/(dashboard)/[resource]/actions";
 import type { FieldConfig, ResourceConfig } from "@/lib/admin/resources";
 import SubmitButton from "./submit-button";
+import ImageField from "./image-field";
+import MarkdownEditor from "./markdown-editor";
 
 const initialState: ResourceState = { ok: false, message: "" };
 
@@ -21,6 +23,35 @@ function Field({
     "mt-1 w-full rounded-card border bg-surface px-3 py-2 text-sm focus:outline-none focus:border-brand-700";
   const border = error ? "border-error" : "border-border";
   const describedBy = error ? `${field.name}-error` : field.help ? `${field.name}-help` : undefined;
+
+  if (field.type === "image") {
+    return (
+      <div>
+        <ImageField
+          name={field.name}
+          label={field.label}
+          defaultValue={defaultValue}
+          folder={field.folder ?? "media"}
+          aspect={field.aspect}
+          help={field.help}
+        />
+        {error && <p className="mt-1 text-xs text-error">{error}</p>}
+      </div>
+    );
+  }
+
+  if (field.type === "markdown") {
+    return (
+      <div>
+        <label htmlFor={field.name} className="block text-sm font-medium text-ink-900">
+          {field.label}
+          {field.required && <span className="text-error"> *</span>}
+        </label>
+        <MarkdownEditor name={field.name} defaultValue={defaultValue} invalid={Boolean(error)} describedBy={describedBy} />
+        {error && <p id={`${field.name}-error`} className="mt-1 text-xs text-error">{error}</p>}
+      </div>
+    );
+  }
 
   if (field.type === "boolean") {
     return (
@@ -60,12 +91,12 @@ function Field({
             </option>
           ))}
         </select>
-      ) : field.type === "textarea" || field.type === "json" || field.type === "markdown" ? (
+      ) : field.type === "textarea" || field.type === "json" ? (
         <textarea
           id={field.name}
           name={field.name}
           defaultValue={defaultValue}
-          rows={field.type === "markdown" ? 14 : field.type === "json" ? 8 : 3}
+          rows={field.type === "json" ? 8 : 3}
           aria-describedby={describedBy}
           className={`${base} ${border} ${field.type === "json" ? "font-mono text-xs" : ""}`}
         />
@@ -110,7 +141,7 @@ export default function ResourceForm({
   const [state, formAction] = useFormState(saveResource, initialState);
 
   return (
-    <form action={formAction} className="max-w-2xl space-y-5">
+    <form action={formAction} className="max-w-3xl space-y-5">
       <input type="hidden" name="__resource" value={resource.key} />
       {id && <input type="hidden" name="__id" value={id} />}
 

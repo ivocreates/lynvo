@@ -52,7 +52,8 @@ function parseField(field: FieldConfig, raw: FormDataEntryValue | null) {
       return { value: slug };
     }
 
-    case "url": {
+    case "url":
+    case "image": {
       if (!value) return { value: null };
       if (!/^https?:\/\/\S+$/i.test(value)) return { error: "Must start with http:// or https://" };
       return { value };
