@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import {
@@ -22,11 +22,11 @@ const SELECT =
 export default async function AccessPage({ searchParams }: { searchParams: { saved?: string; error?: string } }) {
   await requireAdmin();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: roleRows, error: roleError }, { data: personalRows }, { data: peopleRows }] = await Promise.all([
-    supabase.from("role_permissions").select("role, permission"),
-    supabase.from("staff_permissions").select("user_id, permission, allowed"),
-    supabase
+    db.from("role_permissions").select("role, permission"),
+    db.from("staff_permissions").select("user_id, permission, allowed"),
+    db
       .from("profiles")
       .select("id, email, display_name, role, title, is_active")
       .neq("role", "client")

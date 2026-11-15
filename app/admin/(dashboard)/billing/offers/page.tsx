@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { formatMoney, todayIso } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
@@ -101,10 +101,10 @@ export default async function OffersPage({ searchParams }: { searchParams: { sav
   const isAdmin = hasRole(profile, "admin");
   const today = todayIso();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data, error }, { data: itemRows }] = await Promise.all([
-    supabase.from("billing_offers").select("*").order("active", { ascending: false }).order("code"),
-    supabase.from("billing_items").select("category"),
+    db.from("billing_offers").select("*").order("active", { ascending: false }).order("code"),
+    db.from("billing_items").select("category"),
   ]);
   const offers = (data ?? []) as Offer[];
   const categories = [...new Set(((itemRows ?? []) as { category: string }[]).map((row) => row.category))].sort();

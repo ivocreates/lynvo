@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireManager, recordAudit } from "@/lib/auth";
 import { HR_DOCUMENT_SETTING_KEYS } from "@/lib/admin/billing";
 import {
@@ -89,13 +89,13 @@ export async function createDocument(formData: FormData) {
     failure("/admin/documents/new", `${issue.path.join(".") || "Form"}: ${issue.message}`);
   }
 
-  const supabase = createClient();
+  const db = createClient();
   const values = parsed.data;
   let created: { id: string } | null = null;
   let message = "Could not create the document.";
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("staff_documents")
       .insert({
         ...values,
@@ -144,16 +144,16 @@ export async function createFromTemplate(formData: FormData) {
 
   const body = renderTemplate(template!.body, { ...company, ...staff!.party, ...formatFieldValues(template!, raw) });
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: latest }, { data: prefixRow }] = await Promise.all([
-    supabase
+    db
       .from("staff_documents")
       .select("reference")
       .not("reference", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("site_settings").select("value").eq("key", "doc_reference_prefix").maybeSingle(),
+    db.from("site_settings").select("value").eq("key", "doc_reference_prefix").maybeSingle(),
   ]);
   const lastSequence = Number(String((latest as { reference?: string } | null)?.reference ?? "").match(/(\d+)$/)?.[1] ?? 0);
   const prefix = (prefixRow as { value: { text?: string } | null } | null)?.value?.text ?? "";
@@ -176,7 +176,7 @@ export async function createFromTemplate(formData: FormData) {
   let created: { id: string } | null = null;
   let message = "Could not create the document. Has migration 0027 been run?";
   for (let attempt = 0; attempt < 5 && !created; attempt += 1) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("staff_documents")
       .insert({ ...base, reference: suggestReference(prefix, template!.docType!, lastSequence + 1 + attempt) })
       .select("id")
@@ -206,8 +206,8 @@ export async function updateDocument(formData: FormData) {
     failure(`/admin/documents/${id}`, `${issue.path.join(".") || "Form"}: ${issue.message}`);
   }
 
-  const supabase = createClient();
-  const { error } = await supabase.from("staff_documents").update(parsed.data).eq("id", id);
+  const db = createClient();
+  const { error } = await db.from("staff_documents").update(parsed.data).eq("id", id);
 
   if (error) failure(`/admin/documents/${id}`, error.message);
 
@@ -227,14 +227,14 @@ export async function setDocumentStatus(formData: FormData) {
 
   if (!id || !DOC_STATUSES.includes(status as DocStatus)) return;
 
-  const supabase = createClient();
+  const db = createClient();
   const updates: Record<string, unknown> = { status };
   // Re-issuing clears any earlier signature so the recipient must sign the current version.
   if (status === "issued") {
     updates.recipient_signature_url = null;
     updates.recipient_signed_at = null;
   }
-  const { error } = await supabase.from("staff_documents").update(updates).eq("id", id);
+  const { error } = await db.from("staff_documents").update(updates).eq("id", id);
 
   if (error) redirect(`${redirectTo}?error=status`);
 
@@ -252,8 +252,8 @@ export async function deleteDocument(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  const { error } = await supabase.from("staff_documents").delete().eq("id", id);
+  const db = createClient();
+  const { error } = await db.from("staff_documents").delete().eq("id", id);
 
   if (error) redirect(`/admin/documents?error=delete`);
 
@@ -269,14 +269,14 @@ export async function saveDocumentSettings(
 ): Promise<DocumentSettingsState> {
   await requireManager();
 
-  const supabase = createClient();
+  const db = createClient();
   const rows = HR_DOCUMENT_SETTING_KEYS.map((key) => ({
     key,
     value: { text: String(formData.get(key) ?? "").trim() },
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+  const { error } = await db.from("site_settings").upsert(rows, { onConflict: "key" });
 
   if (error) return { ok: false, message: "Could not save document formatting." };
 

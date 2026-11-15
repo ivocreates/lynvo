@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember, hasRole } from "@/lib/auth";
 import { getStudioUrl } from "@/lib/env";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
@@ -21,9 +21,9 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function CertificatePrintPage({ params }: { params: { id: string } }) {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
+  const db = createClient();
   // RLS: managers see drafts, recipients see only their own issued certificate.
-  const { data } = await supabase.from("certificates").select("*").eq("id", params.id).maybeSingle();
+  const { data } = await db.from("certificates").select("*").eq("id", params.id).maybeSingle();
 
   if (!data) notFound();
   const certificate = data as unknown as Certificate;

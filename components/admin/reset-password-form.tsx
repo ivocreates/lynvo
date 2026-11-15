@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createBrowserSupabase } from "@/lib/supabase/client";
-import { useSupabaseConfig } from "@/components/providers/supabase-config";
+import { authClient } from "@/lib/auth-client";
 
 export default function ResetPasswordForm() {
-  const config = useSupabaseConfig();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -15,11 +13,7 @@ export default function ResetPasswordForm() {
     setLoading(true);
 
     const email = String(new FormData(event.currentTarget).get("email"));
-    const supabase = createBrowserSupabase(config.url, config.anonKey);
-
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/admin/update-password`,
-    });
+    await authClient.requestPasswordReset({ email, redirectTo: "/admin/update-password" }).catch(() => undefined);
 
     setLoading(false);
     // Always report success so the form cannot be used to enumerate accounts.

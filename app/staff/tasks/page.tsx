@@ -1,5 +1,5 @@
 import { requireTeamMember } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { TASK_STATUS_LABELS, TASK_STATUS_STYLES, type Task } from "@/lib/team";
 import { updateTaskStatus } from "./actions";
 
@@ -30,8 +30,8 @@ function dueLabel(due: string | null) {
 export default async function StaffTasksPage() {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("staff_tasks")
     .select("*")
     .eq("assignee_id", profile.id)

@@ -1,30 +1,65 @@
 # LYNVO Deployment
 
-## Environments
+Everything runs on Cloudflare: one Worker (Next.js via OpenNext), a D1
+database (`lynvo-db`), an R2 bucket for uploads (`lynvo-media`) and Better
+Auth for sign-in. There is no Supabase dependency.
 
-| Environment | Purpose | Supabase project |
+## Bindings and settings
+
+| Name | Kind | Where |
 | --- | --- | --- |
-| Local | Development and automated tests | Local CLI stack or dev project |
-| Preview/Staging | PR review and release rehearsal | Isolated staging project |
-| Production | Live LYNVO website | Dedicated production project |
+| `DB` | D1 database `lynvo-db` | `wrangler.toml` |
+| `MEDIA` | R2 bucket `lynvo-media` | `wrangler.toml` |
+| `BETTER_AUTH_SECRET` | Secret (32+ random characters) | `npx wrangler secret put BETTER_AUTH_SECRET` |
+| `RESEND_API_KEY` | Secret | password-reset, invite and enquiry emails |
+| `CONTACT_NOTIFICATION_TO` | Variable | where website enquiries are emailed |
+| `APP_URL`, `STUDIO_URL`, `TECH_URL`, `SITE_URL` | Variables | `wrangler.toml` `[vars]` |
+| `SPLIT_DOMAINS` | Variable, `1` to enable | see Domains |
 
-Never share Auth users, Storage buckets, service-role keys, or lead data between environments.
+Never put secrets in `wrangler.toml`: it is committed, and values there override the dashboard.
 
-## Configuration
+## Local development
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-RESEND_API_KEY=
-CONTACT_NOTIFICATION_TO=
-SITE_URL=https://lynvo.studio
-APP_URL=https://app.lynvo.studio
-STUDIO_URL=https://lynvo.studio
-TECH_URL=https://lynvo.tech
+```
+npm install
+npm run db:migrate:local          # creates the tables in .wrangler/ (local D1)
+npm run dev                       # next dev with local D1 / R2 bindings
+npm run dev:worker                # the real Workers runtime on :8787
 ```
 
-Service role and Resend credentials remain server-only. Configure exact Auth redirect URLs and email templates in Supabase. Deploy on a platform that supports the current Next.js App Router server runtime.
+Create `.dev.vars` (gitignored) with `BETTER_AUTH_SECRET=...` and `APP_URL=http://localhost:3000`.
+
+## Database
+
+- Schema lives in `migrations/` (D1 migrations). Add a new numbered file for every change, then
+  `npm run db:migrate:local` and `npm run db:migrate:remote`.
+- Access rules (who can read / change what) are in `lib/db/policies.ts`; the old database triggers
+  are in `lib/db/hooks.ts`. Every page reads through `createClient()` from `lib/db/server.ts`, which
+  applies those rules for the signed-in person. `createAdminClient()` skips them and is only used
+  server-side after an explicit permission check.
+- Uploaded files are stored in R2 and served from `/media/<key>`.
+
+## Moving the data from Supabase (one time)
+
+1. In Supabase → Project settings → Database, copy the connection string (Session pooler URI).
+2. Run (from the project folder):
+
+   ```
+   SUPABASE_URL=https://<ref>.supabase.co \
+   SUPABASE_SERVICE_ROLE_KEY=<service role key> \
+   SUPABASE_DB_URL='postgresql://postgres.<ref>:<db password>@<pooler-host>:5432/postgres' \
+   npm run db:export-supabase
+   ```
+
+   This reads every table and login (with password hashes, so nobody has to reset their password),
+   copies all uploaded files into R2 and writes `migration-data.sql`. Supabase is not modified.
+3. `npm run db:migrate:remote` (once) then `npm run db:import:remote`.
+4. Delete `migration-data.sql` — it contains personal data and password hashes.
+5. Deploy (push to `main`). Check `https://app.lynvo.studio/api/health` shows `"ok": true`.
+6. Sign in with your usual email and password.
+
+Re-running the export and import is safe (rows are replaced by id), so you can do a final sync just
+before switching.
 
 ## Domains
 
@@ -38,46 +73,27 @@ One Worker serves three domains. `middleware.ts` routes by host (see `lib/sites.
 
 Any other host (localhost, `*.workers.dev`) serves every route unchanged, so the tech site is at `/tech` locally.
 
-Setup:
+1. Attach all three domains (plus `www.` variants) under **Workers & Pages → lynvo → Settings → Domains & Routes**.
+2. Set `SPLIT_DOMAINS=1`. Until then app.lynvo.studio keeps serving the public pages as well.
 
-1. Add `APP_URL`, `STUDIO_URL` and `TECH_URL` to the Worker runtime variables (and `SITE_URL=https://lynvo.studio`).
-2. Attach all three domains (plus `www.` variants) to the Worker under **Settings → Domains & Routes**, or uncomment `routes` in `wrangler.toml`.
-3. In Supabase **Authentication → URL configuration**, set Site URL to `https://app.lynvo.studio` and add `https://app.lynvo.studio/**` to the redirect allow-list. Invites and password resets now link to `APP_URL`.
-4. Set `SPLIT_DOMAINS=1` in the Worker runtime variables. Until then app.lynvo.studio keeps serving the public pages as well, so nothing breaks before lynvo.studio and lynvo.tech are attached.
-5. Run migrations `0027` to `0031` in order (`supabase db push`, or paste each into the SQL editor). `0027` only adds enum values and must be committed before `0028` runs.
-
-## Cloudflare Workers
-
-The app deploys to Cloudflare Workers through the OpenNext adapter:
+## Cloudflare Workers build
 
 ```
-npm run build:cf    # next build + opennextjs-cloudflare build -> .open-next/
-npm run deploy:cf   # build, then wrangler deploy
-npm run preview:cf  # build, then run the Worker locally
+npm run build        # OpenNext build -> .open-next/worker.js
+npm run deploy:cf    # build, then wrangler deploy
 ```
 
-`wrangler.toml` points `main` at `.open-next/worker.js` and serves `.open-next/assets` through the `ASSETS` binding. In the Cloudflare dashboard set the project's **build command** to `npm run build:cf`; the deploy command stays `npx wrangler deploy`.
+Workers Builds: build command `npm run build`, deploy command `npx wrangler deploy` (preview
+branches: `npx wrangler versions upload`).
 
-Both `NEXT_PUBLIC_*` values must be set in **two** places, because Next.js inlines them into the browser bundle at build time and the server reads them again at runtime:
+## Release checklist
 
-1. **Build variables** — Workers Builds settings. Missing values here silently produce an admin area that cannot sign in, a CSP that blocks Supabase, and empty public pages.
-2. **Runtime variables and secrets** — Worker settings. Add `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` and `CONTACT_NOTIFICATION_TO` as encrypted secrets, never as plain vars, and never in `wrangler.toml`.
+1. `npm run typecheck` and `npm run build` pass.
+2. New migrations applied with `npm run db:migrate:remote` before the code that needs them is deployed.
+3. After deploy: `/api/health`, sign in, open a quote, the client portal and the public site.
 
-`lib/env.ts` throws a descriptive error when a Supabase variable is absent, so a misconfigured deploy fails visibly instead of rendering blank content.
+## Rollback
 
-## Release Pipeline
-
-1. Install locked dependencies and run lint, typecheck, tests, and build.
-2. Apply reviewed Supabase migrations to staging from repository history.
-3. Generate/check database types and execute RLS tests.
-4. Deploy the app to staging and run smoke/E2E checks.
-5. Apply production migrations in a controlled release window.
-6. Deploy the approved app version and repeat production smoke checks.
-
-Use additive, backward-compatible migrations wherever possible. Destructive schema changes need a backup, data-migration plan, rollback decision point, and staged release compatible with both schema versions.
-
-## Supabase Setup and Rollback
-
-Create schema, policies, Auth configuration, `public-media`/`private-uploads` buckets, backups, recovery settings, and logging from versioned configuration. After deploy, verify primary routes, a dynamic detail page, controlled form submission, auth/least privilege, publish revalidation, media upload, and anonymous RLS/Storage denial.
-
-Roll back the application deployment first while schema compatibility remains. Do not blindly reverse data migrations; forward-fix or restore through a rehearsed recovery plan. Restrict access and rotate credentials during a serious data incident.
+Workers keeps previous versions: **Workers & Pages → lynvo → Deployments → Rollback**. D1 has
+point-in-time restore (`npx wrangler d1 time-travel restore lynvo-db --timestamp=<ISO time>`), up to 30
+days back.

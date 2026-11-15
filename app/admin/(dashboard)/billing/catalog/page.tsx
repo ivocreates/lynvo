@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { BILLING_CATEGORIES, formatMoney, packageSavings } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
@@ -52,10 +52,10 @@ export default async function CatalogPage({
     Object.entries({ tab, q: searchParams.q ?? "", category: searchParams.category ?? "", cycle: searchParams.cycle ?? "", status, sort: searchParams.sort ?? "" }).filter(([, value]) => value)
   ).toString()}`;
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: itemRows }, packageResult] = await Promise.all([
-    supabase.from("billing_items").select("id, code, name, description, category, unit, unit_price, unit_price_intl, price_from, recurring, active").order("order").limit(2000),
-    supabase.from("billing_packages").select("*").order("order"),
+    db.from("billing_items").select("id, code, name, description, category, unit, unit_price, unit_price_intl, price_from, recurring, active").order("order").limit(2000),
+    db.from("billing_packages").select("*").order("order"),
   ]);
 
   const allItems = (itemRows ?? []) as Item[];

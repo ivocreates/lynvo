@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { INVOICE_INCOME_CATEGORY, fyRange } from "@/lib/accounts";
 
 export type LedgerRow = {
@@ -32,17 +32,17 @@ export type InvoiceIssued = { id: string; number: string; issue_date: string; cl
  */
 export async function loadFinancialYear(fy: number) {
   const { start, end } = fyRange(fy);
-  const supabase = createClient();
+  const db = createClient();
 
   const [ledger, payments, invoices] = await Promise.all([
-    supabase.from("ledger_entries").select("*").gte("entry_date", start).lte("entry_date", end).order("entry_date", { ascending: false }),
-    supabase
+    db.from("ledger_entries").select("*").gte("entry_date", start).lte("entry_date", end).order("entry_date", { ascending: false }),
+    db
       .from("billing_payments")
       .select("*, billing_documents(id, number, client_name, client_gstin, total, tax_amount)")
       .gte("paid_on", start)
       .lte("paid_on", end)
       .order("paid_on", { ascending: false }),
-    supabase
+    db
       .from("billing_documents")
       .select("id, number, issue_date, client_name, client_gstin, subtotal, discount_amount, tax_amount, total, currency, status")
       .eq("doc_type", "invoice")

@@ -7,6 +7,10 @@ import { loadBillingView } from "@/lib/billing-view";
 import PrintButton from "@/components/admin/print-button";
 import BillingDocument from "@/components/documents/billing-document";
 
+
+// Per-user pages: always rendered on request.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function BillingPrintPage({ params }: { params: { id: string } }) {

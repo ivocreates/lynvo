@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, requirePermission, recordAudit } from "@/lib/auth";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,8 +47,8 @@ export async function quickUpdateItem(formData: FormData) {
   const usd = money(formData.get("unit_price_intl"));
   if (inr === null || usd === null) redirect(flag(target, `error=${encodeURIComponent("Enter valid prices.")}`));
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const db = createClient();
+  const { error } = await db
     .from("billing_items")
     .update({
       unit_price: inr,
@@ -68,7 +68,7 @@ export async function quickUpdatePackage(formData: FormData) {
   const target = back(formData, "/admin/billing/catalog?tab=packages");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
+  const db = createClient();
   const values: Record<string, unknown> = {
     price_inr: money(formData.get("price_inr")) ?? 0,
     price_intl: money(formData.get("price_intl")) ?? 0,
@@ -81,8 +81,8 @@ export async function quickUpdatePackage(formData: FormData) {
     compare_intl: money(formData.get("compare_intl")) || null,
   };
 
-  let { error } = await supabase.from("billing_packages").update({ ...values, ...compare }).eq("id", id);
-  if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await supabase.from("billing_packages").update(values).eq("id", id));
+  let { error } = await db.from("billing_packages").update({ ...values, ...compare }).eq("id", id);
+  if (error?.code === "42703" || error?.code === "PGRST204") ({ error } = await db.from("billing_packages").update(values).eq("id", id));
 
   revalidatePath("/admin/billing/catalog");
   redirect(flag(target, error ? "error=save" : "saved=1"));
@@ -102,8 +102,8 @@ export async function bulkAdjustPrices(formData: FormData) {
     redirect(flag(target, `error=${encodeURIComponent("Enter a percentage between -90 and 300 (not zero).")}`));
   }
 
-  const supabase = createClient();
-  let query = supabase.from("billing_items").select("id, unit_price, unit_price_intl");
+  const db = createClient();
+  let query = db.from("billing_items").select("id, unit_price, unit_price_intl");
   if (category) query = query.eq("category", category);
   const { data } = await query;
   const rows = (data ?? []) as { id: string; unit_price: number; unit_price_intl: number }[];
@@ -116,7 +116,7 @@ export async function bulkAdjustPrices(formData: FormData) {
     const nextInr = scope === "INT" ? inr : round ? friendly(inr * factor, "INR") : Math.round(inr * factor * 100) / 100;
     const nextUsd = scope === "IN" ? usd : round ? friendly(usd * factor, "USD") : Math.round(usd * factor * 100) / 100;
     if (nextInr === inr && nextUsd === usd) continue;
-    const { error } = await supabase
+    const { error } = await db
       .from("billing_items")
       .update({ unit_price: nextInr, unit_price_intl: nextUsd, updated_at: new Date().toISOString() })
       .eq("id", row.id);
@@ -163,10 +163,10 @@ export async function saveOffer(formData: FormData) {
     updated_at: new Date().toISOString(),
   };
 
-  const supabase = createClient();
+  const db = createClient();
   const { error } = UUID.test(id)
-    ? await supabase.from("billing_offers").update(values).eq("id", id)
-    : await supabase.from("billing_offers").insert(values);
+    ? await db.from("billing_offers").update(values).eq("id", id)
+    : await db.from("billing_offers").insert(values);
 
   if (error) {
     const message = error.code === "23505" ? "That code already exists." : "Could not save the offer. Has migration 0032 been run?";
@@ -180,8 +180,8 @@ export async function deleteOffer(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!UUID.test(id)) return;
-  const supabase = createClient();
-  await supabase.from("billing_offers").delete().eq("id", id);
+  const db = createClient();
+  await db.from("billing_offers").delete().eq("id", id);
   revalidatePath("/admin/billing/offers");
   redirect("/admin/billing/offers?saved=1");
 }

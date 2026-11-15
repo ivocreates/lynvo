@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SectionStamp from "@/components/ui/section-stamp";
 import ProjectCta from "@/components/ui/project-cta";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getServices, getSiteSettings, settingsMap } from "@/lib/queries";
 
 type ServiceContent = {
@@ -16,8 +16,8 @@ type ServiceContent = {
 };
 
 async function loadService(slug: string) {
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("services")
     .select("*")
     .eq("slug", slug)

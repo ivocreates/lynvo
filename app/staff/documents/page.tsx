@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireTeamMember } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { DOC_TYPE_LABELS, type StaffDocument } from "@/lib/documents";
 import { CERTIFICATE_TYPE_LABELS, formatPeriod, type Certificate } from "@/lib/certificates";
 import { acknowledgeDocument } from "./actions";
@@ -11,14 +11,14 @@ export const metadata = { title: "My documents" };
 export default async function StaffDocumentsPage() {
   const profile = await requireTeamMember();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: docRows }, { data: certRows }] = await Promise.all([
-    supabase
+    db
       .from("staff_documents")
       .select("*")
       .eq("status", "issued")
       .order("issue_date", { ascending: false }),
-    supabase
+    db
       .from("certificates")
       .select("*")
       .eq("recipient_id", profile.id)

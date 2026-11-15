@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin } from "@/lib/auth";
 import PageHeader from "@/components/admin/page-header";
 import SettingsForm from "@/components/admin/settings-form";
@@ -6,8 +6,8 @@ import SettingsForm from "@/components/admin/settings-form";
 export default async function SettingsPage() {
   await requireAdmin();
 
-  const supabase = createClient();
-  const { data: rows } = await supabase.from("site_settings").select("key, value");
+  const db = createClient();
+  const { data: rows } = await db.from("site_settings").select("key, value");
 
   const values: Record<string, string> = {};
   for (const row of (rows ?? []) as { key: string; value: { text?: string } | null }[]) {

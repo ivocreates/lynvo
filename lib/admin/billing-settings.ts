@@ -1,11 +1,11 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { PRINT_SETTING_KEYS, type BillingSettings } from "@/lib/admin/billing";
 
 export async function getBillingSettings(): Promise<BillingSettings> {
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("site_settings")
     .select("key, value")
     .in("key", PRINT_SETTING_KEYS);

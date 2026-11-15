@@ -2,15 +2,15 @@ import Link from "next/link";
 import DocumentBody from "@/components/documents/document-body";
 import { notFound } from "next/navigation";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { parseDocumentBody } from "@/lib/documents";
 import { formatPeriod, type ClientReport } from "@/lib/clients";
 
 export default async function ClientReportPage({ params }: { params: { id: string } }) {
   const profile = await requireClient();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("client_reports")
     .select("*")
     .eq("id", params.id)

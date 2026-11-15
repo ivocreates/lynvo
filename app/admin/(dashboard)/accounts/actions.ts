@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, recordAudit } from "@/lib/auth";
 import { PAYMENT_METHODS } from "@/lib/admin/billing";
 
@@ -61,10 +61,10 @@ export async function saveLedgerEntry(formData: FormData) {
     updated_at: new Date().toISOString(),
   };
 
-  const supabase = createClient();
+  const db = createClient();
   const { error } = UUID.test(id)
-    ? await supabase.from("ledger_entries").update(values).eq("id", id)
-    : await supabase.from("ledger_entries").insert({ ...values, created_by: actor.id });
+    ? await db.from("ledger_entries").update(values).eq("id", id)
+    : await db.from("ledger_entries").insert({ ...values, created_by: actor.id });
 
   if (error) redirect(flag(target, `error=${encodeURIComponent("Could not save. Has migration 0033 been run?")}`));
 
@@ -80,8 +80,8 @@ export async function deleteLedgerEntry(formData: FormData) {
   const target = back(formData);
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  await supabase.from("ledger_entries").delete().eq("id", id);
+  const db = createClient();
+  await db.from("ledger_entries").delete().eq("id", id);
   await recordAudit("delete", "ledger_entries", id);
   revalidatePath("/admin/accounts");
   revalidatePath("/admin/accounts/ledger");

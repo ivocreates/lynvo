@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTeamMember, hasRole } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { formatMeetingWhen, getUpcomingMeetings, goalProgress, type Goal, type Task } from "@/lib/team";
 
 function formatDate(value: string | null) {
@@ -13,19 +13,19 @@ export default async function StaffOverviewPage() {
   const profile = await requireTeamMember();
   const isManager = hasRole(profile, "junior_partner");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: manager }, { data: taskRows }, { data: goalRows }, meetings] = await Promise.all([
     profile.manager_id
-      ? supabase.from("profiles").select("display_name, email").eq("id", profile.manager_id).maybeSingle()
+      ? db.from("profiles").select("display_name, email").eq("id", profile.manager_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase
+    db
       .from("staff_tasks")
       .select("*")
       .eq("assignee_id", profile.id)
       .neq("status", "approved")
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(5),
-    supabase
+    db
       .from("staff_goals")
       .select("*")
       .eq("status", "active")

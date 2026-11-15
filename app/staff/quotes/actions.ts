@@ -2,15 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, recordAudit } from "@/lib/auth";
 import { calculateTotals, currencyForRegion, nextDocumentNumber, parseLineItems, readRegion } from "@/lib/admin/billing";
 import type { BillingState } from "@/app/admin/(dashboard)/billing/actions";
 
 async function buildQuoteNumber() {
-  const supabase = createClient();
+  const db = createClient();
 
-  const { data: settingRow } = await supabase
+  const { data: settingRow } = await db
     .from("site_settings")
     .select("value")
     .eq("key", "billing_quote_prefix")
@@ -18,7 +18,7 @@ async function buildQuoteNumber() {
 
   const prefix = (settingRow as { value: { text?: string } | null } | null)?.value?.text || "LYNVO/QT";
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("billing_documents")
     .select("number")
     .eq("doc_type", "quote");
@@ -51,7 +51,7 @@ export async function saveStaffQuote(
     return value || null;
   };
 
-  const supabase = createClient();
+  const db = createClient();
   const region = readRegion(formData.get("region"));
 
   const values = {
@@ -77,14 +77,14 @@ export async function saveStaffQuote(
   let documentId = id;
 
   if (id) {
-    const { error } = await supabase
+    const { error } = await db
       .from("billing_documents")
       .update(values)
       .eq("id", id)
       .eq("created_by", profile.id);
     if (error) return { ok: false, message: "Could not save this quote. It may already be under review." };
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("billing_documents")
       .insert({ ...values, number: await buildQuoteNumber(), created_by: profile.id })
       .select("id")
@@ -94,8 +94,8 @@ export async function saveStaffQuote(
     documentId = (data as { id: string }).id;
   }
 
-  await supabase.from("billing_document_items").delete().eq("document_id", documentId);
-  const { error: itemsError } = await supabase
+  await db.from("billing_document_items").delete().eq("document_id", documentId);
+  const { error: itemsError } = await db
     .from("billing_document_items")
     .insert(items.map((item, index) => ({ ...item, document_id: documentId, position: index })));
 
@@ -113,8 +113,8 @@ export async function deleteStaffQuote(formData: FormData) {
   const id = String(formData.get("__id") ?? "").trim();
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase
+  const db = createClient();
+  await db
     .from("billing_documents")
     .delete()
     .eq("id", id)

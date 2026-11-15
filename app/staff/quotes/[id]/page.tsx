@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { getCatalog } from "@/lib/admin/catalog";
 import BillingForm from "@/components/admin/billing-form";
@@ -10,8 +10,8 @@ import { saveStaffQuote } from "../actions";
 export default async function EditStaffQuotePage({ params }: { params: { id: string } }) {
   const profile = await requirePermission("billing.draft");
 
-  const supabase = createClient();
-  const { data: document } = await supabase
+  const db = createClient();
+  const { data: document } = await db
     .from("billing_documents")
     .select("*")
     .eq("id", params.id)
@@ -22,7 +22,7 @@ export default async function EditStaffQuotePage({ params }: { params: { id: str
   if (!document) notFound();
 
   const [{ data: itemRows }, catalog, settings] = await Promise.all([
-    supabase
+    db
       .from("billing_document_items")
       .select("name, description, category, recurring, unit, hsn_sac, quantity, unit_price, tax_rate, line_total")
       .eq("document_id", params.id)

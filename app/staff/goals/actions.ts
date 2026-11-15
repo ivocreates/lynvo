@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember, requireManager, hasRole } from "@/lib/auth";
 import { GOAL_STATUSES, type GoalStatus } from "@/lib/team";
 
@@ -57,8 +57,8 @@ export async function createGoal(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  await supabase.from("staff_goals").insert({ ...parsed.data, created_by: actor.id });
+  const db = createClient();
+  await db.from("staff_goals").insert({ ...parsed.data, created_by: actor.id });
 
   revalidatePath("/staff/goals");
 }
@@ -79,8 +79,8 @@ export async function updateGoalProgress(formData: FormData) {
   };
   if (GOAL_STATUSES.includes(status as GoalStatus)) patch.status = status;
 
-  const supabase = createClient();
-  const query = supabase.from("staff_goals").update(patch).eq("id", id);
+  const db = createClient();
+  const query = db.from("staff_goals").update(patch).eq("id", id);
   // RLS allows managers anything; everyone else only their own goal.
   if (!hasRole(profile, "junior_partner")) query.eq("owner_id", profile.id);
 
@@ -95,8 +95,8 @@ export async function deleteGoal(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("staff_goals").delete().eq("id", id);
+  const db = createClient();
+  await db.from("staff_goals").delete().eq("id", id);
 
   revalidatePath("/staff/goals");
 }

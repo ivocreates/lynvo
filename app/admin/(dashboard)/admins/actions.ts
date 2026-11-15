@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/db/server";
+import { createAdminClient } from "@/lib/db/server";
 import { requireSuperAdmin, requireManager, requireAdmin, recordAudit } from "@/lib/auth";
 import { EMPLOYMENT_TYPES, isRole, ROLE_LABELS, ROLE_RANK } from "@/lib/roles";
 import { provisionAccount } from "@/lib/admin/invites";
+import { deleteLogin } from "@/lib/accounts-auth";
 
 export type AdminsState = { ok: boolean; message: string; link?: string | null };
 
@@ -50,8 +51,8 @@ export async function updateStaffAccess(formData: FormData) {
   // Guard against demoting yourself out of the only super admin account.
   if (id === actor.id && (role !== "super_admin" || !isActive)) return;
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const db = createClient();
+  const { error } = await db
     .from("profiles")
     .update({ role, is_active: isActive })
     .eq("id", id);
@@ -86,7 +87,12 @@ export async function deleteStaff(formData: FormData) {
     if ((count ?? 0) <= 1) return;
   }
 
-  const { error } = await admin.auth.admin.deleteUser(id);
+  let error: unknown = null;
+  try {
+    await deleteLogin(id);
+  } catch (caught) {
+    error = caught;
+  }
 
   if (!error) await recordAudit("delete", "profiles", id, { email: target.email, role: target.role });
 
@@ -112,8 +118,8 @@ export async function updateStaffDetails(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  const { error } = await supabase.from("profiles").update(parsed.data).eq("id", id);
+  const db = createClient();
+  const { error } = await db.from("profiles").update(parsed.data).eq("id", id);
 
   if (!error) await recordAudit("update", "profiles", id, { fields: Object.keys(parsed.data) });
 

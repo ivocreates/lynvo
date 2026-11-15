@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { todayIso } from "@/lib/admin/billing";
 import { LEAD_SOURCES, LEAD_SOURCE_LABELS, LEAD_STATUSES, LEAD_STATUS_LABELS, LEAD_STATUS_TONES, OPEN_STATUSES, phoneDigits, whatsappLink } from "@/lib/crm";
@@ -35,8 +35,8 @@ export default async function LeadsPage({
   const profile = await requirePermission("crm");
   const today = todayIso();
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from("crm_leads")
     .select("id, company, contact_name, phone, city, industry, status, source, site, next_follow_up, last_contacted_at, owner_id")
     .order("next_follow_up", { ascending: true, nullsFirst: false })
@@ -55,7 +55,7 @@ export default async function LeadsPage({
 
   const [{ data, error }, { data: ownerRows }] = await Promise.all([
     query,
-    supabase.from("profiles").select("id, display_name, email").neq("role", "client").eq("is_active", true).order("display_name"),
+    db.from("profiles").select("id, display_name, email").neq("role", "client").eq("is_active", true).order("display_name"),
   ]);
 
   const leads = (data ?? []) as Lead[];

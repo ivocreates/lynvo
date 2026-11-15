@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
 import { toFieldValue } from "@/lib/admin/form";
@@ -16,8 +16,8 @@ export default async function EditResourcePage({
 
   await requireResourceAccess(params.resource);
 
-  const supabase = createClient();
-  const { data: row } = await supabase
+  const db = createClient();
+  const { data: row } = await db
     .from(resource.table)
     .select("*")
     .eq("id", params.id)

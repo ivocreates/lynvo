@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { hasRole } from "@/lib/auth";
 import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
@@ -30,8 +30,8 @@ export default async function ResourceListPage({
   const profile = await requireResourceAccess(params.resource);
   const canDelete = hasRole(profile, "admin");
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from(resource.table)
     .select("*")
     .order(resource.orderBy.column, { ascending: resource.orderBy.ascending })

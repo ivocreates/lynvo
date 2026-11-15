@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, requirePermission, recordAudit } from "@/lib/auth";
 import { formatFieldValues, getTemplate, renderTemplate } from "@/lib/legal-templates";
 import { clientValues, companyValues, readFieldValues } from "@/lib/legal-autofill";
@@ -13,10 +13,10 @@ function fail(path: string, message: string): never {
   redirect(`${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`);
 }
 
-async function nextReference(supabase: ReturnType<typeof createClient>) {
+async function nextReference(db: ReturnType<typeof createClient>) {
   const [{ data: prefixRow }, { data: latest }] = await Promise.all([
-    supabase.from("site_settings").select("value").eq("key", "legal_reference_prefix").maybeSingle(),
-    supabase
+    db.from("site_settings").select("value").eq("key", "legal_reference_prefix").maybeSingle(),
+    db
       .from("client_agreements")
       .select("reference")
       .not("reference", "is", null)
@@ -54,17 +54,17 @@ export async function createAgreement(formData: FormData) {
 
   const body = renderTemplate(template!.body, { ...company, ...client!.party, ...formatFieldValues(template!, raw) });
 
-  const supabase = createClient();
+  const db = createClient();
   let created: { id: string } | null = null;
   for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("client_agreements")
       .insert({
         client_id: clientId,
         engagement_id: UUID.test(engagementId) ? engagementId : null,
         template_key: template!.key,
         title: `${template!.title}${raw.project_title ? ` — ${raw.project_title}` : ""}`,
-        reference: await nextReference(supabase),
+        reference: await nextReference(db),
         body,
         field_values: raw,
         signature_required: template!.signature,
@@ -93,8 +93,8 @@ export async function updateAgreement(formData: FormData) {
   const body = String(formData.get("body") ?? "").slice(0, 80_000);
   if (title.length < 2) fail(`/admin/legal/${id}`, "Title is required.");
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const db = createClient();
+  const { error } = await db
     .from("client_agreements")
     .update({
       title,
@@ -118,15 +118,15 @@ export async function setAgreementStatus(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   if (!UUID.test(id) || !["draft", "sent", "void", "signed"].includes(status)) return;
 
-  const supabase = createClient();
-  const { data: row } = await supabase.from("client_agreements").select("client_id, status, signature_required").eq("id", id).maybeSingle();
+  const db = createClient();
+  const { data: row } = await db.from("client_agreements").select("client_id, status, signature_required").eq("id", id).maybeSingle();
   const current = row as { client_id: string; status: string; signature_required: boolean } | null;
   if (!current) fail("/admin/legal", "Agreement not found.");
 
   // "signed" by hand is only for documents that do not need the client's portal signature.
   if (status === "signed" && current!.signature_required) fail(`/admin/legal/${id}`, "The client signs this in their portal.");
 
-  const { error } = await supabase.from("client_agreements").update({ status }).eq("id", id);
+  const { error } = await db.from("client_agreements").update({ status }).eq("id", id);
   if (error) fail(`/admin/legal/${id}`, "Could not change the status.");
 
   await recordAudit("status_change", "client_agreements", id, { status });
@@ -143,8 +143,8 @@ export async function deleteAgreement(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  await supabase.from("client_agreements").delete().eq("id", id);
+  const db = createClient();
+  await db.from("client_agreements").delete().eq("id", id);
   await recordAudit("delete", "client_agreements", id);
   revalidatePath("/admin/legal");
   redirect("/admin/legal?deleted=1");

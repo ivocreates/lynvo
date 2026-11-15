@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember } from "@/lib/auth";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/team";
 
@@ -16,9 +16,9 @@ export async function updateTaskStatus(formData: FormData) {
   if (!id || !TASK_STATUSES.includes(status as TaskStatus)) return;
   if (!SELF_SERVICE.includes(status as TaskStatus)) return;
 
-  const supabase = createClient();
+  const db = createClient();
   // RLS restricts this to the assignee; the trigger blocks field tampering.
-  await supabase.from("staff_tasks").update({ status }).eq("id", id).eq("assignee_id", profile.id);
+  await db.from("staff_tasks").update({ status }).eq("id", id).eq("assignee_id", profile.id);
 
   revalidatePath("/staff/tasks");
   revalidatePath("/staff");

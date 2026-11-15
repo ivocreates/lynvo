@@ -1,15 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 /**
- * Generic safe select: returns [] instead of throwing when Supabase
- * isn't configured yet, so the UI still renders during local setup.
+ * Generic safe select: returns [] instead of throwing when the database
+ * isn't reachable yet, so the UI still renders during local setup.
  * Failures are logged because an empty page is otherwise indistinguishable
  * from a missing env var or a blocking RLS policy in production.
  */
 async function safeSelect<T>(table: string, build: (q: any) => any): Promise<T[]> {
   try {
-    const supabase = createClient();
-    const query = build(supabase.from(table));
+    const db = createClient();
+    const query = build(db.from(table));
     const { data, error } = await query;
     if (error) {
       console.error(`[queries] select from "${table}" failed:`, error.code, error.message);
@@ -123,8 +123,8 @@ export type PublicSite = "studio" | "tech";
  */
 async function siteSelect<T>(table: string, site: PublicSite, build: (q: any) => any): Promise<T[]> {
   try {
-    const supabase = createClient();
-    const { data, error } = await build(supabase.from(table)).in("site", [site, "both"]);
+    const db = createClient();
+    const { data, error } = await build(db.from(table)).in("site", [site, "both"]);
     if (!error) return (data ?? []) as T[];
     if (error.code !== "42703") console.error(`[queries] select from "${table}" failed:`, error.code, error.message);
   } catch (error) {

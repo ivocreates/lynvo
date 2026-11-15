@@ -1,7 +1,9 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Local `next dev` gets the D1 / R2 bindings from wrangler.toml (local state in .wrangler/).
+if (process.env.NODE_ENV === "development") initOpenNextCloudflareForDev();
+
 /** @type {import('next').NextConfig} */
-const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
-  : "";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -13,8 +15,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https:",
   "font-src 'self' data:",
-  // Wildcards keep Supabase reachable even if the build-time URL var is absent.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com ${supabaseOrigin} ${supabaseOrigin.replace("https://", "wss://")}`.trim(),
+  "connect-src 'self' https://cloudflareinsights.com",
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -37,14 +38,9 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-    ],
+  experimental: {
+    // Image uploads (team photos, blog images) go through server actions; the default cap is 1 MB.
+    serverActions: { bodySizeLimit: "6mb" },
   },
   async headers() {
     return [

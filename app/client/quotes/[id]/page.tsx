@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClient } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import { loadBillingView } from "@/lib/billing-view";
 import { formatMoney } from "@/lib/admin/billing";

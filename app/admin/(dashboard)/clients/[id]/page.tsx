@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requirePermission, hasRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import PageHeader from "@/components/admin/page-header";
 import ClientTabs from "@/components/admin/client-tabs";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
@@ -48,8 +48,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const profile = await requirePermission("clients.manage");
   const canDelete = hasRole(profile, "admin");
 
-  const supabase = createClient();
-  const { data: clientRow } = await supabase.from("clients").select("*").eq("id", params.id).maybeSingle();
+  const db = createClient();
+  const { data: clientRow } = await db.from("clients").select("*").eq("id", params.id).maybeSingle();
 
   if (!clientRow) notFound();
   const client = clientRow as unknown as Client;
@@ -61,11 +61,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     { data: staffRows },
     { data: projectRows },
   ] = await Promise.all([
-    supabase.from("client_engagements").select("*").eq("client_id", params.id).order("created_at"),
-    supabase.from("client_reports").select("*").eq("client_id", params.id).order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, email, display_name, is_active").eq("client_id", params.id),
-    supabase.from("profiles").select("id, display_name, email").eq("is_active", true).neq("role", "client"),
-    supabase.from("projects").select("id, title").order("created_at", { ascending: false }).limit(100),
+    db.from("client_engagements").select("*").eq("client_id", params.id).order("created_at"),
+    db.from("client_reports").select("*").eq("client_id", params.id).order("created_at", { ascending: false }),
+    db.from("profiles").select("id, email, display_name, is_active").eq("client_id", params.id),
+    db.from("profiles").select("id, display_name, email").eq("is_active", true).neq("role", "client"),
+    db.from("projects").select("id, title").order("created_at", { ascending: false }).limit(100),
   ]);
 
   const engagements = (engagementRows ?? []) as Engagement[];
@@ -77,8 +77,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const [{ data: milestoneRows }, { data: deliverableRows }] =
     engagementIds.length > 0
       ? await Promise.all([
-          supabase.from("client_milestones").select("*").in("engagement_id", engagementIds).order("position"),
-          supabase.from("client_deliverables").select("*").in("engagement_id", engagementIds).order("position"),
+          db.from("client_milestones").select("*").in("engagement_id", engagementIds).order("position"),
+          db.from("client_deliverables").select("*").in("engagement_id", engagementIds).order("position"),
         ])
       : [{ data: [] }, { data: [] }];
 

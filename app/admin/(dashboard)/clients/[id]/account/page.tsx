@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { can, requirePermission } from "@/lib/auth";
 import {
   INVOICE_KIND_LABELS,
@@ -55,23 +55,23 @@ export default async function ClientAccountPage({
   const profile = await requirePermission("clients.manage");
   const billing = await can(profile, "billing.manage");
 
-  const supabase = createClient();
-  const { data: clientRow } = await supabase.from("clients").select("id, name, contact_name, email, phone").eq("id", params.id).maybeSingle();
+  const db = createClient();
+  const { data: clientRow } = await db.from("clients").select("id, name, contact_name, email, phone").eq("id", params.id).maybeSingle();
   if (!clientRow) notFound();
   const client = clientRow as { id: string; name: string; contact_name: string | null; email: string | null; phone: string | null };
 
   const [{ data: docRows }, { data: paymentRows }, { data: subscriptionRows }] = await Promise.all([
-    supabase
+    db
       .from("billing_documents")
       .select("id, doc_type, number, status, issue_date, due_date, currency, total, balance_due, invoice_kind, source_quote_id")
       .eq("client_id", params.id)
       .order("issue_date", { ascending: false }),
-    supabase
+    db
       .from("billing_payments")
       .select("id, amount, currency, paid_on, method, reference, document_id")
       .eq("client_id", params.id)
       .order("paid_on", { ascending: false }),
-    supabase.from("client_subscriptions").select("*").eq("client_id", params.id).order("status"),
+    db.from("client_subscriptions").select("*").eq("client_id", params.id).order("status"),
   ]);
 
   const docs = (docRows ?? []) as Doc[];
@@ -86,7 +86,7 @@ export default async function ClientAccountPage({
   const invoiceIds = invoices.map((doc) => doc.id);
   const { data: purchaseRows } =
     invoiceIds.length > 0
-      ? await supabase
+      ? await db
           .from("billing_document_items")
           .select("name, category, quantity, line_total, document_id")
           .in("document_id", invoiceIds)

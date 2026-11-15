@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { clientTemplates, staffTemplates } from "@/lib/legal-templates";
 import PageHeader from "@/components/admin/page-header";
@@ -29,8 +29,8 @@ export default async function LegalPage({ searchParams }: { searchParams: { stat
   const profile = await requirePermission("clients.manage");
   const isManager = hasRole(profile, "junior_partner");
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from("client_agreements")
     .select("id, title, reference, status, issue_date, signed_at, client_id, clients(name)")
     .order("created_at", { ascending: false })

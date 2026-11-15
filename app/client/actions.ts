@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireClient } from "@/lib/auth";
 
 export type ReviewState = { ok: boolean; message: string };
@@ -17,8 +17,8 @@ export async function reviewDeliverable(formData: FormData) {
 
   if (!id || !["approved", "revision_requested"].includes(decision)) return;
 
-  const supabase = createClient();
-  await supabase
+  const db = createClient();
+  await db
     .from("client_deliverables")
     .update({ status: decision, client_feedback: feedback })
     .eq("id", id);
@@ -37,8 +37,8 @@ export async function acceptQuote(formData: FormData) {
   if (!id) return;
   if (!agreed || signer.length < 2) redirect(`/client/quotes/${id}?error=confirm`);
 
-  const supabase = createClient();
-  const { data, error } = await supabase.rpc("client_accept_quote", { doc: id, signer });
+  const db = createClient();
+  const { data, error } = await db.rpc("client_accept_quote", { doc: id, signer });
 
   revalidatePath("/client/quotes");
   revalidatePath("/client");
@@ -55,8 +55,8 @@ export async function signAgreement(formData: FormData) {
   if (!id) return;
   if (formData.get("agree") !== "on" || signer.length < 2) redirect(`/client/documents/${id}?error=confirm`);
 
-  const supabase = createClient();
-  const { data, error } = await supabase.rpc("client_sign_agreement", { agreement: id, signer, designation });
+  const db = createClient();
+  const { data, error } = await db.rpc("client_sign_agreement", { agreement: id, signer, designation });
 
   revalidatePath("/client/documents");
   redirect(`/client/documents/${id}?${error || !data ? "error=sign" : "signed=1"}`);
@@ -74,8 +74,8 @@ export async function submitReview(_prev: ReviewState, formData: FormData): Prom
     return { ok: false, message: "Choose a rating from 1 to 5." };
   }
 
-  const supabase = createClient();
-  const { error } = await supabase.from("reviews").insert({ content, rating, client_id: profile.client_id });
+  const db = createClient();
+  const { error } = await db.from("reviews").insert({ content, rating, client_id: profile.client_id });
 
   if (error) return { ok: false, message: "We could not submit your review. Please try again." };
 

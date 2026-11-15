@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, recordAudit } from "@/lib/auth";
 import { requireResourceAccess } from "@/lib/admin/resource-guard";
 import { getResource } from "@/lib/admin/resources";
@@ -53,17 +53,17 @@ export async function saveResource(
     values.published_at = new Date().toISOString();
   }
 
-  const supabase = createClient();
+  const db = createClient();
 
   if (id) {
     values.updated_at = new Date().toISOString();
-    const { error } = await supabase.from(resource.table).update(values).eq("id", id);
+    const { error } = await db.from(resource.table).update(values).eq("id", id);
 
     if (error) return { ok: false, message: friendlyError(error.message) };
 
     await recordAudit("update", resource.table, id, { title: values[resource.titleField] });
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from(resource.table)
       .insert(values)
       .select("id")
@@ -89,8 +89,8 @@ export async function deleteResource(formData: FormData) {
 
   if (!resource || !id) return;
 
-  const supabase = createClient();
-  const { error } = await supabase.from(resource.table).delete().eq("id", id);
+  const db = createClient();
+  const { error } = await db.from(resource.table).delete().eq("id", id);
 
   if (!error) await recordAudit("delete", resource.table, id);
 

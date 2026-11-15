@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireManager, hasRole } from "@/lib/auth";
 import { ROLES, STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
 import PageHeader from "@/components/admin/page-header";
@@ -16,8 +16,8 @@ export default async function PeoplePage() {
   const canManageAccess = hasRole(actor, "super_admin");
   const canInvite = hasRole(actor, "admin");
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("profiles")
     .select(
       "id, email, display_name, role, is_active, title, department, phone, employment_type, joined_on, ends_on, manager_id, created_at"

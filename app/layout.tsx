@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope, JetBrains_Mono } from "next/font/google";
-import { getSiteUrl, getSupabaseAnonKeyValue, getSupabaseUrlValue } from "@/lib/env";
-import { SupabaseConfigProvider } from "@/components/providers/supabase-config";
+import { getSiteUrl } from "@/lib/env";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -41,15 +40,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabaseConfig = {
-    url: getSupabaseUrlValue() ?? "",
-    anonKey: getSupabaseAnonKeyValue() ?? "",
-  };
+
 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body className="min-h-screen">
-        <SupabaseConfigProvider config={supabaseConfig}>{children}</SupabaseConfigProvider>
+        {children}
       </body>
     </html>
   );

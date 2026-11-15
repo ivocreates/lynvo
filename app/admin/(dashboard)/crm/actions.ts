@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, requirePermission, recordAudit } from "@/lib/auth";
 import { addDays, todayIso } from "@/lib/admin/billing";
 import {
@@ -70,19 +70,19 @@ export async function createLead(formData: FormData) {
   const values = leadValues(formData);
   if (values.company.length < 2) redirect(flag(target, `error=${encodeURIComponent("Add the business name.")}`));
 
-  const supabase = createClient();
+  const db = createClient();
 
   // Avoid calling the same business twice: match on phone first, then name.
   if (values.phone) {
     const digits = values.phone.replace(/\D/g, "").slice(-10);
     if (digits.length >= 8) {
-      const { data: duplicate } = await supabase.from("crm_leads").select("id").ilike("phone", `%${digits}%`).limit(1).maybeSingle();
+      const { data: duplicate } = await db.from("crm_leads").select("id").ilike("phone", `%${digits}%`).limit(1).maybeSingle();
       if (duplicate) redirect(`/admin/crm/leads/${(duplicate as { id: string }).id}?duplicate=1`);
     }
   }
 
   const ownerId = String(formData.get("owner_id") ?? "");
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("crm_leads")
     .insert({ ...values, owner_id: UUID.test(ownerId) ? ownerId : actor.id, created_by: actor.id })
     .select("id")
@@ -105,8 +105,8 @@ export async function updateLead(formData: FormData) {
   if (values.company.length < 2) redirect(`/admin/crm/leads/${id}?error=${encodeURIComponent("Add the business name.")}`);
 
   const ownerId = String(formData.get("owner_id") ?? "");
-  const supabase = createClient();
-  const { error } = await supabase
+  const db = createClient();
+  const { error } = await db
     .from("crm_leads")
     .update({ ...values, owner_id: UUID.test(ownerId) ? ownerId : null, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -124,14 +124,14 @@ export async function setLeadStatus(formData: FormData) {
   const target = back(formData, `/admin/crm/leads/${id}`);
   if (!UUID.test(id) || !LEAD_STATUSES.some((entry) => entry.value === status)) return;
 
-  const supabase = createClient();
+  const db = createClient();
   const updates: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (status === "lost") updates.lost_reason = text(formData, "lost_reason", 300);
   if (status === "won" || status === "lost") updates.next_follow_up = null;
 
-  const { error } = await supabase.from("crm_leads").update(updates).eq("id", id);
+  const { error } = await db.from("crm_leads").update(updates).eq("id", id);
   if (!error) {
-    await supabase.from("crm_activities").insert({
+    await db.from("crm_activities").insert({
       lead_id: id,
       kind: "status",
       summary: `Moved to ${status.replace("_", " ")}`,
@@ -158,8 +158,8 @@ export async function logActivity(formData: FormData) {
   const followUpDays = Number(formData.get("follow_up_days") ?? "");
   if (!followUp && Number.isFinite(followUpDays) && followUpDays > 0) followUp = addDays(todayIso(), followUpDays);
 
-  const supabase = createClient();
-  const { error } = await supabase.from("crm_activities").insert({
+  const db = createClient();
+  const { error } = await db.from("crm_activities").insert({
     lead_id: leadId,
     kind,
     outcome,
@@ -171,7 +171,7 @@ export async function logActivity(formData: FormData) {
 
   // "Not interested" and "wrong number" close the lead so it leaves the call list.
   if (!error && (outcome === "not_interested" || outcome === "wrong_number")) {
-    await supabase
+    await db
       .from("crm_leads")
       .update({ status: "lost", lost_reason: outcome === "wrong_number" ? "Wrong number" : "Not interested", next_follow_up: null })
       .eq("id", leadId);
@@ -189,18 +189,18 @@ export async function convertLead(formData: FormData) {
   const next = String(formData.get("next") ?? "lead");
   if (!UUID.test(id)) return;
 
-  const supabase = createClient();
-  const { data: row } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
+  const db = createClient();
+  const { data: row } = await db.from("crm_leads").select("*").eq("id", id).maybeSingle();
   if (!row) redirect("/admin/crm/leads?error=missing");
   const lead = row as Record<string, any>;
 
   let clientId: string | null = lead.client_id;
   if (!clientId) {
-    const { data: existing } = await supabase.from("clients").select("id").ilike("name", lead.company).limit(1).maybeSingle();
+    const { data: existing } = await db.from("clients").select("id").ilike("name", lead.company).limit(1).maybeSingle();
     clientId = (existing as { id: string } | null)?.id ?? null;
   }
   if (!clientId) {
-    const { data: created, error } = await supabase
+    const { data: created, error } = await db
       .from("clients")
       .insert({
         name: lead.company,
@@ -219,7 +219,7 @@ export async function convertLead(formData: FormData) {
     clientId = (created as { id: string }).id;
   }
 
-  await supabase
+  await db
     .from("crm_leads")
     .update({ client_id: clientId, status: next === "quote" && lead.status !== "won" ? "proposal" : "won", next_follow_up: null })
     .eq("id", id);
@@ -236,8 +236,8 @@ export async function deleteLead(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!UUID.test(id)) return;
-  const supabase = createClient();
-  await supabase.from("crm_leads").delete().eq("id", id);
+  const db = createClient();
+  await db.from("crm_leads").delete().eq("id", id);
   revalidateCrm();
   redirect("/admin/crm/leads?deleted=1");
 }
@@ -254,8 +254,8 @@ export async function importLeads(formData: FormData) {
   const source = oneOf(String(formData.get("source") ?? ""), LEAD_SOURCES, "google_maps");
   const site = formData.get("site") === "tech" ? "tech" : "studio";
 
-  const supabase = createClient();
-  const { data: existing } = await supabase.from("crm_leads").select("phone, company");
+  const db = createClient();
+  const { data: existing } = await db.from("crm_leads").select("phone, company");
   const knownPhones = new Set(
     ((existing ?? []) as { phone: string | null }[]).map((row) => (row.phone ?? "").replace(/\D/g, "").slice(-10)).filter(Boolean)
   );
@@ -271,7 +271,7 @@ export async function importLeads(formData: FormData) {
   });
 
   if (fresh.length > 0) {
-    const { error } = await supabase.from("crm_leads").insert(
+    const { error } = await db.from("crm_leads").insert(
       fresh.map((row) => ({
         company: row.company.slice(0, 200),
         contact_name: row.contact_name || null,
@@ -302,15 +302,15 @@ export async function leadFromContact(formData: FormData) {
   const contactId = String(formData.get("contact_id") ?? "");
   if (!UUID.test(contactId)) return;
 
-  const supabase = createClient();
-  const { data: contact } = await supabase.from("contacts").select("*").eq("id", contactId).maybeSingle();
+  const db = createClient();
+  const { data: contact } = await db.from("contacts").select("*").eq("id", contactId).maybeSingle();
   if (!contact) redirect("/admin/contacts?error=missing");
   const c = contact as Record<string, any>;
 
-  const { data: existing } = await supabase.from("crm_leads").select("id").eq("contact_id", contactId).maybeSingle();
+  const { data: existing } = await db.from("crm_leads").select("id").eq("contact_id", contactId).maybeSingle();
   if (existing) redirect(`/admin/crm/leads/${(existing as { id: string }).id}`);
 
-  const { data } = await supabase
+  const { data } = await db
     .from("crm_leads")
     .insert({
       company: c.company || c.name || "Website enquiry",
@@ -329,7 +329,7 @@ export async function leadFromContact(formData: FormData) {
     .select("id")
     .maybeSingle();
 
-  await supabase.from("contacts").update({ status: "read" }).eq("id", contactId);
+  await db.from("contacts").update({ status: "read" }).eq("id", contactId);
   revalidateCrm();
   revalidatePath("/admin/contacts");
   redirect(data ? `/admin/crm/leads/${(data as { id: string }).id}?created=1` : "/admin/contacts?error=lead");

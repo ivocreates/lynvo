@@ -6,6 +6,10 @@ import { getTechUrl } from "@/lib/env";
 import { getSiteSettings, settingsMap } from "@/lib/queries";
 import { studioHref, techHref } from "@/lib/tech-site";
 
+
+// Content comes from D1 on every request (CMS edits show immediately).
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(getTechUrl()),
   title: {

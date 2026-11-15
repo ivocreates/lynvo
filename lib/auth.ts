@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient, getRequestContext } from "@/lib/db/server";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 import {
   PERMISSION_KEYS,
@@ -44,17 +44,13 @@ const PROFILE_COLUMNS =
   "id, email, display_name, role, is_active, title, department, employment_type, joined_on, ends_on, manager_id, avatar_url, client_id";
 
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const ctx = await getRequestContext();
+  if (!ctx.userId) return null;
 
-  if (!user) return null;
-
-  const { data } = await supabase
+  const { data } = await createAdminClient()
     .from("profiles")
     .select(PROFILE_COLUMNS)
-    .eq("id", user.id)
+    .eq("id", ctx.userId)
     .maybeSingle();
 
   if (!data || !data.is_active) return null;
@@ -91,10 +87,10 @@ export const getPermissions = cache(async (profile: Profile): Promise<Permission
   if (profile.role === "client") return [];
   if (holdsAllPermissions(profile.role)) return [...PERMISSION_KEYS];
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: roleRows }, { data: personalRows }] = await Promise.all([
-    supabase.from("role_permissions").select("permission").eq("role", profile.role),
-    supabase.from("staff_permissions").select("permission, allowed").eq("user_id", profile.id),
+    db.from("role_permissions").select("permission").eq("role", profile.role),
+    db.from("staff_permissions").select("permission, allowed").eq("user_id", profile.id),
   ]);
 
   // Before migration 0028 these tables do not exist; fall back to the old role tiers.
@@ -167,10 +163,10 @@ export async function recordAudit(
   metadata: Record<string, unknown> = {}
 ) {
   try {
-    const supabase = createClient();
+    const db = createClient();
     const profile = await getCurrentProfile();
 
-    await supabase.from("audit_logs").insert({
+    await db.from("audit_logs").insert({
       actor_id: profile?.id ?? null,
       action,
       entity,

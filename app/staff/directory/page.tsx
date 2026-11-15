@@ -1,14 +1,14 @@
 import { requireTeamMember } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 
 export const metadata = { title: "Directory" };
 
 export default async function StaffDirectoryPage() {
   await requireTeamMember();
 
-  const supabase = createClient();
-  const { data } = await supabase
+  const db = createClient();
+  const { data } = await db
     .from("profiles")
     .select("id, display_name, email, role, title, department, employment_type, phone")
     .eq("is_active", true)

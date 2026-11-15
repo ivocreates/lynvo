@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, recordAudit } from "@/lib/auth";
 import { SETTING_KEYS } from "@/lib/admin/settings";
 
@@ -13,14 +13,14 @@ export async function saveSettings(
 ): Promise<SettingsState> {
   await requireAdmin();
 
-  const supabase = createClient();
+  const db = createClient();
   const rows = SETTING_KEYS.map((setting) => ({
     key: setting.key,
     value: { text: String(formData.get(setting.key) ?? "").trim() },
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+  const { error } = await db.from("site_settings").upsert(rows, { onConflict: "key" });
 
   if (error) {
     return { ok: false, message: "Could not save settings." };

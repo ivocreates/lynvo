@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission } from "@/lib/auth";
 import { clientTemplates, getTemplate } from "@/lib/legal-templates";
 import { clientValues, companyValues, initialFieldValues } from "@/lib/legal-autofill";
@@ -20,17 +20,17 @@ export default async function NewAgreementPage({
 }) {
   await requirePermission("clients.manage");
 
-  const supabase = createClient();
+  const db = createClient();
   const template = searchParams.template ? getTemplate(searchParams.template) : undefined;
   const clientId = searchParams.client ?? "";
 
   const [{ data: clientRows }, { data: engagementRows }, { data: quoteRows }] = await Promise.all([
-    supabase.from("clients").select("id, name").neq("status", "archived").order("name"),
+    db.from("clients").select("id, name").neq("status", "archived").order("name"),
     clientId
-      ? supabase.from("client_engagements").select("id, title").eq("client_id", clientId).order("created_at", { ascending: false })
+      ? db.from("client_engagements").select("id, title").eq("client_id", clientId).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     clientId
-      ? supabase
+      ? db
           .from("billing_documents")
           .select("id, number, total, currency, status")
           .eq("client_id", clientId)

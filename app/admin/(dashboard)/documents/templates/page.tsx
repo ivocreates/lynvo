@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireManager } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import { getTemplate, staffTemplates } from "@/lib/legal-templates";
@@ -21,8 +21,8 @@ export default async function HrTemplatesPage({
 }) {
   await requireManager();
 
-  const supabase = createClient();
-  const { data: peopleRows } = await supabase
+  const db = createClient();
+  const { data: peopleRows } = await db
     .from("profiles")
     .select("id, display_name, email, role, title")
     .neq("role", "client")

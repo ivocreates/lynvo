@@ -2,8 +2,7 @@ import ResetPasswordForm from "@/components/admin/reset-password-form";
 
 export const metadata = { robots: { index: false, follow: false } };
 
-// Rendered per request so the Supabase config comes from the Worker runtime
-// rather than being frozen into the build output.
+// Rendered per request: auth state is read from the Worker at runtime.
 export const dynamic = "force-dynamic";
 
 export default function ResetPasswordPage() {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, hasRole } from "@/lib/auth";
 import { PAYMENT_METHOD_LABELS, formatMoney, todayIso } from "@/lib/admin/billing";
 import PageHeader from "@/components/admin/page-header";
@@ -47,8 +47,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: { r
   const range = RANGES.some((entry) => entry.value === searchParams.range) ? searchParams.range! : "month";
   const start = rangeStart(range);
 
-  const supabase = createClient();
-  let query = supabase
+  const db = createClient();
+  let query = db
     .from("billing_payments")
     .select("*, billing_documents(number, client_name)")
     .order("paid_on", { ascending: false })

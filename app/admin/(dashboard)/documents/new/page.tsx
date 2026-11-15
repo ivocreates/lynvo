@@ -1,5 +1,5 @@
 import { requireManager } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { getBillingSettings } from "@/lib/admin/billing-settings";
 import PageHeader from "@/components/admin/page-header";
 import DocumentForm from "@/components/admin/document-form";
@@ -13,11 +13,11 @@ export default async function NewDocumentPage({
 }) {
   await requireManager();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: peopleRows }, { data: latest }, settings] = await Promise.all([
-    supabase.from("profiles").select("id, display_name, email").eq("is_active", true),
+    db.from("profiles").select("id, display_name, email").eq("is_active", true),
     // Sequence off the newest reference, not the row count: deleted rows would replay a taken number.
-    supabase
+    db
       .from("staff_documents")
       .select("reference")
       .not("reference", "is", null)

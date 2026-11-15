@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createBrowserSupabase } from "@/lib/supabase/client";
-import { useSupabaseConfig } from "@/components/providers/supabase-config";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
 const MIN_PASSWORD_LENGTH = 12;
 
 export default function UpdatePasswordForm() {
   const router = useRouter();
-  const config = useSupabaseConfig();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const linkError = searchParams.get("error");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,17 +33,21 @@ export default function UpdatePasswordForm() {
       return;
     }
 
-    setLoading(true);
-    const supabase = createBrowserSupabase(config.url, config.anonKey);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-
-    if (updateError) {
-      setError("Could not update the password. Request a new reset link and try again.");
+    if (!token) {
+      setError("This page needs the link from your email. Request a new one below.");
       return;
     }
 
-    router.push("/auth/landing");
+    setLoading(true);
+    const { error: resetError } = await authClient.resetPassword({ newPassword: password, token });
+    setLoading(false);
+
+    if (resetError) {
+      setError("That link has expired or was already used. Request a new one below.");
+      return;
+    }
+
+    router.push("/admin/login?reset=1");
     router.refresh();
   }
 
@@ -49,6 +55,15 @@ export default function UpdatePasswordForm() {
     <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-card border border-border bg-surface p-8">
       <p className="section-stamp mb-2">ACCOUNT RECOVERY</p>
       <h1 className="font-display text-2xl font-semibold text-ink-900">Choose a new password</h1>
+      {(linkError || !token) && (
+        <p className="mt-4 rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          {linkError ? "That link has expired or was already used." : "Open this page from the link in your email."}{" "}
+          <Link href="/admin/reset-password" className="underline">
+            Request a new link
+          </Link>
+          .
+        </p>
+      )}
       <div className="mt-6 space-y-4">
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-ink-900">

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireAdmin, recordAudit } from "@/lib/auth";
 import { CONFIGURABLE_ROLES, PERMISSION_KEYS } from "@/lib/permissions";
 
@@ -17,12 +17,12 @@ export async function saveRolePermissions(formData: FormData) {
     }))
   );
 
-  const supabase = createClient();
-  const { error: deleteError } = await supabase.from("role_permissions").delete().in("role", CONFIGURABLE_ROLES);
+  const db = createClient();
+  const { error: deleteError } = await db.from("role_permissions").delete().in("role", CONFIGURABLE_ROLES);
   if (deleteError) redirect("/admin/access?error=roles");
 
   if (rows.length > 0) {
-    const { error } = await supabase.from("role_permissions").insert(rows);
+    const { error } = await db.from("role_permissions").insert(rows);
     if (error) redirect("/admin/access?error=roles");
   }
 
@@ -43,11 +43,11 @@ export async function savePersonPermissions(formData: FormData) {
     choice: String(formData.get(permission) ?? "default"),
   })).filter((entry) => entry.choice === "allow" || entry.choice === "deny");
 
-  const supabase = createClient();
-  await supabase.from("staff_permissions").delete().eq("user_id", userId);
+  const db = createClient();
+  await db.from("staff_permissions").delete().eq("user_id", userId);
 
   if (overrides.length > 0) {
-    const { error } = await supabase.from("staff_permissions").insert(
+    const { error } = await db.from("staff_permissions").insert(
       overrides.map((entry) => ({
         user_id: userId,
         permission: entry.permission,

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requirePermission, requireSuperAdmin, recordAudit } from "@/lib/auth";
 
 const STATUSES = ["new", "read", "replied", "archived"] as const;
@@ -14,8 +14,8 @@ export async function updateContactStatus(formData: FormData) {
 
   if (!id || !STATUSES.includes(status as (typeof STATUSES)[number])) return;
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const db = createClient();
+  const { error } = await db
     .from("contacts")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
@@ -31,8 +31,8 @@ export async function deleteContact(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  const { error } = await supabase.from("contacts").delete().eq("id", id);
+  const db = createClient();
+  const { error } = await db.from("contacts").delete().eq("id", id);
 
   if (!error) await recordAudit("delete", "contacts", id);
 

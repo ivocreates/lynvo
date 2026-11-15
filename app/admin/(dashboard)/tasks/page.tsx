@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireManager } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import PageHeader from "@/components/admin/page-header";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
 import {
@@ -24,10 +24,10 @@ export default async function AdminTasksPage({
 }) {
   await requireManager();
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: peopleRows }, { data: projectRows }] = await Promise.all([
-    supabase.from("profiles").select("id, display_name, email, role").eq("is_active", true),
-    supabase.from("projects").select("id, title").order("created_at", { ascending: false }).limit(100),
+    db.from("profiles").select("id, display_name, email, role").eq("is_active", true),
+    db.from("projects").select("id, title").order("created_at", { ascending: false }).limit(100),
   ]);
 
   const people = (peopleRows ?? []) as Record<string, any>[];
@@ -37,7 +37,7 @@ export default async function AdminTasksPage({
     return person ? person.display_name ?? person.email : "Unassigned";
   };
 
-  let query = supabase.from("staff_tasks").select("*").order("created_at", { ascending: false }).limit(200);
+  let query = db.from("staff_tasks").select("*").order("created_at", { ascending: false }).limit(200);
   const activeStatus = searchParams.status;
   if (activeStatus && TASK_STATUSES.includes(activeStatus as TaskStatus)) {
     query = query.eq("status", activeStatus);

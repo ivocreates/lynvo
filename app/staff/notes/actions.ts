@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import { requireTeamMember } from "@/lib/auth";
 import { NOTE_VISIBILITIES, type NoteVisibility } from "@/lib/team";
 
@@ -30,8 +30,8 @@ export async function createNote(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  await supabase.from("staff_notes").insert({ ...parsed.data, author_id: profile.id });
+  const db = createClient();
+  await db.from("staff_notes").insert({ ...parsed.data, author_id: profile.id });
 
   revalidatePath("/staff/notes");
 }
@@ -51,8 +51,8 @@ export async function updateNote(formData: FormData) {
 
   if (!parsed.success) return;
 
-  const supabase = createClient();
-  await supabase
+  const db = createClient();
+  await db
     .from("staff_notes")
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq("id", id)
@@ -67,8 +67,8 @@ export async function deleteNote(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = createClient();
-  await supabase.from("staff_notes").delete().eq("id", id).eq("author_id", profile.id);
+  const db = createClient();
+  await db.from("staff_notes").delete().eq("id", id).eq("author_id", profile.id);
 
   revalidatePath("/staff/notes");
 }

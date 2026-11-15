@@ -9,3 +9,7 @@ out
 .open-next
 *.tsbuildinfo
 supabase/.temp
+.dev.vars
+migration-data*.sql
+auth-users*.csv
+auth-users*.json

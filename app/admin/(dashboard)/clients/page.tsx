@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import PageHeader from "@/components/admin/page-header";
 import { ENGAGEMENT_LABELS, ENGAGEMENT_STYLES, type Client, type Engagement } from "@/lib/clients";
 import { createClientRecord } from "./actions";
@@ -18,10 +18,10 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function ClientsPage() {
   await requirePermission("clients.manage");
 
-  const supabase = createClient();
+  const db = createClient();
   const [{ data: clientRows }, { data: engagementRows }] = await Promise.all([
-    supabase.from("clients").select("*").order("created_at", { ascending: false }),
-    supabase.from("client_engagements").select("id, client_id, title, status, progress"),
+    db.from("clients").select("*").order("created_at", { ascending: false }),
+    db.from("client_engagements").select("id, client_id, title, status, progress"),
   ]);
 
   const clients = (clientRows ?? []) as Client[];

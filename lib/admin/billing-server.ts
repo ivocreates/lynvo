@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/db/server";
 import {
   calculateTotals,
   nextDocumentNumber,
@@ -10,7 +10,7 @@ import {
   type Region,
 } from "@/lib/admin/billing";
 
-type Supabase = ReturnType<typeof createClient>;
+type Db = ReturnType<typeof createClient>;
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,8 +27,8 @@ export function normaliseItems(rows: unknown[] | null | undefined): LineItem[] {
   }));
 }
 
-export async function buildNumber(supabase: Supabase, docType: DocType) {
-  const { data: settingRows } = await supabase
+export async function buildNumber(db: Db, docType: DocType) {
+  const { data: settingRows } = await db
     .from("site_settings")
     .select("key, value")
     .in("key", ["billing_quote_prefix", "billing_invoice_prefix"]);
@@ -43,7 +43,7 @@ export async function buildNumber(supabase: Supabase, docType: DocType) {
       ? prefixes.billing_invoice_prefix || "LYNVO/INV"
       : prefixes.billing_quote_prefix || "LYNVO/QT";
 
-  const { data: existing } = await supabase.from("billing_documents").select("number").eq("doc_type", docType);
+  const { data: existing } = await db.from("billing_documents").select("number").eq("doc_type", docType);
 
   return nextDocumentNumber(prefix, ((existing ?? []) as { number: string }[]).map((row) => row.number));
 }
@@ -61,11 +61,11 @@ export interface ClientDetails {
  * Every billed client gets an account. Reuses an existing account with the
  * same name (case-insensitive) before creating a new one.
  */
-export async function ensureClientAccount(supabase: Supabase, details: ClientDetails, actorId: string) {
+export async function ensureClientAccount(db: Db, details: ClientDetails, actorId: string) {
   const name = details.name.trim();
   if (!name) return null;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from("clients")
     .select("id")
     .ilike("name", name.replace(/[%_]/g, (match) => `\\${match}`))
@@ -74,7 +74,7 @@ export async function ensureClientAccount(supabase: Supabase, details: ClientDet
 
   if (existing) return (existing as { id: string }).id;
 
-  const { data: created } = await supabase
+  const { data: created } = await db
     .from("clients")
     .insert({
       name,
@@ -114,7 +114,7 @@ export interface NewDocument {
 
 /** Inserts a document and its line items, retrying once if the number was taken meanwhile. */
 export async function insertDocument(
-  supabase: Supabase,
+  db: Db,
   doc: NewDocument,
   items: LineItem[],
   actorId: string
@@ -122,8 +122,8 @@ export async function insertDocument(
   const totals = calculateTotals(items, doc.discount);
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const number = await buildNumber(supabase, doc.doc_type);
-    const { data, error } = await supabase
+    const number = await buildNumber(db, doc.doc_type);
+    const { data, error } = await db
       .from("billing_documents")
       .insert({
         doc_type: doc.doc_type,
@@ -155,7 +155,7 @@ export async function insertDocument(
 
     if (data) {
       const id = (data as { id: string }).id;
-      const { error: itemsError } = await supabase
+      const { error: itemsError } = await db
         .from("billing_document_items")
         .insert(items.map((item, index) => ({ ...item, document_id: id, position: index })));
       if (itemsError) return { error: "Created the document but could not save its line items." };
@@ -170,7 +170,7 @@ export async function insertDocument(
   return { error: "Could not allocate a document number. Please try again." };
 }
 
-export async function getSetting(supabase: Supabase, key: string) {
-  const { data } = await supabase.from("site_settings").select("value").eq("key", key).maybeSingle();
+export async function getSetting(db: Db, key: string) {
+  const { data } = await db.from("site_settings").select("value").eq("key", key).maybeSingle();
   return ((data as { value: { text?: string } | null } | null)?.value?.text ?? "").trim();
 }
