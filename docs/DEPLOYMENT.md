@@ -73,7 +73,7 @@ One Worker serves three domains. `middleware.ts` routes by host (see `lib/sites.
 
 Any other host (localhost, `*.workers.dev`) serves every route unchanged, so the tech site is at `/tech` locally.
 
-1. Attach all three domains (plus `www.` variants) under **Workers & Pages → lynvo-webapp → Settings → Domains & Routes**.
+1. Attach all three domains (plus `www.` variants) under **Workers & Pages → lynvo → Settings → Domains & Routes**.
 2. Set `SPLIT_DOMAINS=1`. Until then app.lynvo.studio keeps serving the public pages as well.
 
 ## Cloudflare Workers build
@@ -94,6 +94,6 @@ branches: `npx wrangler versions upload`).
 
 ## Rollback
 
-Workers keeps previous versions: **Workers & Pages → lynvo-webapp → Deployments → Rollback**. D1 has
+Workers keeps previous versions: **Workers & Pages → lynvo → Deployments → Rollback**. D1 has
 point-in-time restore (`npx wrangler d1 time-travel restore lynvo-db --timestamp=<ISO time>`), up to 30
 days back.
