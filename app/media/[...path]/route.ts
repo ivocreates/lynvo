@@ -3,7 +3,8 @@ import { getMediaBucket } from "@/lib/db/cloudflare";
 /** Serves uploaded files from R2. Keys are random UUIDs, so they are safe to cache forever. */
 export async function GET(_request: Request, { params }: { params: { path: string[] } }) {
   const key = params.path.map((part) => decodeURIComponent(part)).join("/");
-  if (!key || key.includes("..")) return new Response("Not found", { status: 404 });
+  // private/ holds paid deliverables: only /download/<id> may serve them.
+  if (!key || key.includes("..") || key.startsWith("private/")) return new Response("Not found", { status: 404 });
 
   const object = await getMediaBucket().get(key);
   if (!object) return new Response("Not found", { status: 404 });

@@ -117,7 +117,10 @@ export const HOOKS: Record<string, TableHooks> = {
   client_deliverables: {
     beforeUpdate(_system, ctx, old, next) {
       if (ctx.bypass || hasPermission(ctx, "clients.manage")) return;
-      keep(old, next, ["engagement_id", "title", "description", "kind", "url", "version", "due_date", "delivered_at", "visible_to_client", "position"]);
+      keep(old, next, [
+        "engagement_id", "title", "description", "kind", "url", "version", "due_date", "delivered_at", "visible_to_client", "position",
+        "file_key", "file_name", "file_size", "file_type", "release_rule", "invoice_id", "released_at", "download_count", "last_downloaded_at",
+      ]);
       if (!["approved", "revision_requested"].includes(String(next.status))) fail("A client may only approve or request changes");
       next.reviewed_at = now();
     },

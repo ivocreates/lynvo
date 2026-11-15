@@ -43,7 +43,7 @@ export function siteForHost(rawHost: string | null | undefined): SiteKind {
 }
 
 /** Paths that belong to the platform, never to a marketing site. */
-export const PLATFORM_PREFIXES = ["/admin", "/staff", "/client", "/auth", "/login"];
+export const PLATFORM_PREFIXES = ["/admin", "/staff", "/client", "/auth", "/login", "/download"];
 
 export const isPlatformPath = (pathname: string) =>
   PLATFORM_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

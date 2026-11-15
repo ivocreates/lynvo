@@ -18,6 +18,8 @@ import {
   type Milestone,
 } from "@/lib/clients";
 import { reviewDeliverable, submitReview } from "./actions";
+import { releaseStates, type DeliverableFile } from "@/lib/deliverable-access";
+import { formatBytes } from "@/lib/deliverables";
 import ReviewForm from "@/components/client/review-form";
 
 export default async function ClientOverviewPage() {
@@ -53,6 +55,8 @@ export default async function ClientOverviewPage() {
   const milestones = (milestoneRows ?? []) as Milestone[];
   const deliverables = (deliverableRows ?? []) as Deliverable[];
   const awaiting = deliverables.filter((deliverable) => deliverable.status === "in_review");
+  // Files and links are released by payment rules; never trust the raw URL here.
+  const release = await releaseStates(profile.client_id, deliverables as DeliverableFile[]);
 
   return (
     <div>
@@ -144,6 +148,7 @@ export default async function ClientOverviewPage() {
                     <ul className="mt-3 space-y-3">
                       {theirDeliverables.map((deliverable) => {
                         const url = safeUrl(deliverable.url);
+                        const state = release.get(deliverable.id);
                         const canReview = deliverable.status === "in_review";
 
                         return (
@@ -176,15 +181,35 @@ export default async function ClientOverviewPage() {
                             </div>
 
                             <div className="mt-3 flex flex-wrap items-center gap-3">
-                              {url && (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className="rounded-card border border-border px-3 py-1.5 text-sm hover:bg-canvas-warm"
-                                >
-                                  {deliverable.kind === "preview" ? "Open preview" : "Open"}
-                                </a>
+                              {(url || deliverable.file_key) && state?.released && (
+                                <>
+                                  {deliverable.file_key && (
+                                    <a href={`/download/${deliverable.id}`} className="rounded-card bg-ink-900 px-3 py-1.5 text-sm text-text-inverse hover:bg-brand-700">
+                                      Download {deliverable.file_name ?? "file"}
+                                      {deliverable.file_size ? ` · ${formatBytes(deliverable.file_size)}` : ""}
+                                    </a>
+                                  )}
+                                  {url && (
+                                    <a
+                                      href={`/download/${deliverable.id}?link=1`}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="rounded-card border border-border px-3 py-1.5 text-sm hover:bg-canvas-warm"
+                                    >
+                                      {deliverable.kind === "preview" ? "Open preview" : "Open link"}
+                                    </a>
+                                  )}
+                                </>
+                              )}
+                              {(url || deliverable.file_key) && state && !state.released && (
+                                <p className="flex flex-wrap items-center gap-2 rounded-card border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs text-warning">
+                                  <span aria-hidden="true">🔒</span> {state.reason}
+                                  {state.invoiceId && (
+                                    <a href={`/client/quotes/${state.invoiceId}`} className="font-medium underline">
+                                      View invoice
+                                    </a>
+                                  )}
+                                </p>
                               )}
                               {deliverable.client_feedback && (
                                 <p className="text-xs text-text-primary/60">

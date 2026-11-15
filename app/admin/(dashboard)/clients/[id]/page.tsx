@@ -35,7 +35,14 @@ import {
   saveReport,
   deleteReport,
   revokeClientUser,
+  archiveClient,
+  setDeliverableRelease,
+  removeDeliverableFile,
 } from "../actions";
+import Flash from "@/components/admin/flash";
+import DeliverableUpload from "@/components/admin/deliverable-upload";
+import { RELEASE_RULES, formatBytes } from "@/lib/deliverables";
+import { releaseStates, type DeliverableFile } from "@/lib/deliverable-access";
 
 const FIELD =
   "mt-1 w-full rounded-card border border-border bg-canvas-warm px-3 py-2 text-sm focus:border-brand-700 focus:outline-none";
@@ -44,7 +51,13 @@ const SMALL =
 const LABEL = "block text-xs uppercase tracking-[0.18em] text-text-primary/60";
 const CHECKBOX = "h-4 w-4 rounded border-border accent-brand-700";
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { saved?: string; error?: string };
+}) {
   const profile = await requirePermission("clients.manage");
   const canDelete = hasRole(profile, "admin");
 
@@ -67,6 +80,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     db.from("profiles").select("id, display_name, email").eq("is_active", true).neq("role", "client"),
     db.from("projects").select("id, title").order("created_at", { ascending: false }).limit(100),
   ]);
+  const { data: invoiceRows } = await db
+    .from("billing_documents")
+    .select("id, number, status, total, currency")
+    .eq("client_id", params.id)
+    .eq("doc_type", "invoice")
+    .neq("status", "cancelled")
+    .order("issue_date", { ascending: false });
+  const invoices = (invoiceRows ?? []) as { id: string; number: string; status: string; total: number; currency: string }[];
 
   const engagements = (engagementRows ?? []) as Engagement[];
   const reports = (reportRows ?? []) as ClientReport[];
@@ -84,11 +105,27 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   const milestones = (milestoneRows ?? []) as Milestone[];
   const deliverables = (deliverableRows ?? []) as Deliverable[];
+  const release = await releaseStates(client.id, deliverables as DeliverableFile[]);
 
   return (
     <div>
       <PageHeader stamp="CLIENT" title={client.name} description="Engagements, timeline, deliveries, and reports." />
       <ClientTabs clientId={client.id} active="overview" />
+      <Flash
+        success={
+          searchParams.saved === "archived"
+            ? "Client archived. Their portal logins are switched off."
+            : searchParams.saved === "restored"
+              ? "Client restored. Their portal logins work again."
+              : null
+        }
+        error={searchParams.error}
+      />
+      {client.status === "archived" && (
+        <p className="mb-6 rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          This client is archived: hidden from the client list and unable to sign in.
+        </p>
+      )}
 
       <section className="mb-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <form action={updateClientRecord} className="rounded-card border border-border bg-surface p-5">
@@ -154,11 +191,28 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                       <span className={`font-mono text-xs uppercase ${user.is_active ? "text-success" : "text-text-primary/50"}`}>
                         {user.is_active ? "active" : "revoked"}
                       </span>
-                      {user.is_active && (
+                      {user.is_active ? (
                         <form action={revokeClientUser}>
                           <input type="hidden" name="profile_id" value={user.id} />
                           <input type="hidden" name="client_id" value={client.id} />
-                          <ConfirmSubmit message="Revoke portal access for this contact?" label="Revoke" />
+                          <ConfirmSubmit message="Switch off portal access for this contact? You can restore it later." label="Revoke" />
+                        </form>
+                      ) : (
+                        <form action={revokeClientUser}>
+                          <input type="hidden" name="profile_id" value={user.id} />
+                          <input type="hidden" name="client_id" value={client.id} />
+                          <input type="hidden" name="restore" value="1" />
+                          <button type="submit" className="text-sm text-brand-700 underline">
+                            Restore
+                          </button>
+                        </form>
+                      )}
+                      {canDelete && (
+                        <form action={revokeClientUser}>
+                          <input type="hidden" name="profile_id" value={user.id} />
+                          <input type="hidden" name="client_id" value={client.id} />
+                          <input type="hidden" name="remove" value="1" />
+                          <ConfirmSubmit message="Delete this login permanently? They would need a new invite." label="Remove" />
                         </form>
                       )}
                     </span>
@@ -173,18 +227,37 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             )}
           </div>
 
-          {canDelete && (
-            <form action={deleteClientRecord} className="rounded-card border border-error/30 bg-error/5 p-5">
+          <div className="rounded-card border border-error/30 bg-error/5 p-5">
+            <p className="section-stamp text-error">REMOVE CLIENT</p>
+            <form action={archiveClient} className="mt-3">
               <input type="hidden" name="id" value={client.id} />
-              <p className="section-stamp text-error">DANGER ZONE</p>
-              <p className="mt-2 text-sm text-text-primary/75">
-                Deleting removes every engagement, deliverable, and report for this client.
+              {client.status === "archived" && <input type="hidden" name="restore" value="1" />}
+              <p className="text-sm text-text-primary/75">
+                {client.status === "archived"
+                  ? "Restore the client and switch their portal logins back on."
+                  : "Archive: hides the client and switches off their portal logins. Everything is kept and can be restored."}
               </p>
-              <div className="mt-3">
-                <ConfirmSubmit message={`Delete ${client.name} and all of their data?`} />
-              </div>
+              <button type="submit" className="mt-2 rounded-card border border-border bg-surface px-3 py-1.5 text-sm hover:bg-canvas-warm">
+                {client.status === "archived" ? "Restore client" : "Archive client"}
+              </button>
             </form>
-          )}
+            {canDelete && (
+              <form action={deleteClientRecord} className="mt-5 border-t border-error/20 pt-4">
+                <input type="hidden" name="id" value={client.id} />
+                <p className="text-sm text-text-primary/75">
+                  Delete permanently: removes their logins, projects, files, reports and agreements. Invoices and payments are kept for your
+                  accounts.
+                </p>
+                <label className="mt-2 block text-xs text-text-primary/70">
+                  Type DELETE to confirm
+                  <input name="confirm" autoComplete="off" className={`${SMALL} mt-1`} />
+                </label>
+                <div className="mt-2">
+                  <ConfirmSubmit message={`Permanently delete ${client.name}?`} label="Delete permanently" />
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </section>
 
@@ -362,6 +435,21 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                                 </select>
                                 <input name="version" defaultValue={deliverable.version ?? ""} placeholder="v1" className={SMALL} aria-label="Version" />
                                 <input name="due_date" type="date" defaultValue={deliverable.due_date ?? ""} className={SMALL} aria-label="Deliverable due date" />
+                                <select name="release_rule" defaultValue={deliverable.release_rule ?? "immediate"} className={SMALL} aria-label="When the client can download">
+                                  {RELEASE_RULES.map((rule) => (
+                                    <option key={rule.value} value={rule.value}>
+                                      Download: {rule.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select name="invoice_id" defaultValue={deliverable.invoice_id ?? ""} className={SMALL} aria-label="Invoice that unlocks it">
+                                  <option value="">Invoice (for &ldquo;specific invoice&rdquo;)</option>
+                                  {invoices.map((invoice) => (
+                                    <option key={invoice.id} value={invoice.id}>
+                                      {invoice.number} · {invoice.status.replace("_", " ")}
+                                    </option>
+                                  ))}
+                                </select>
                                 <label className="flex items-center gap-2 text-xs text-text-primary/70 sm:col-span-2">
                                   <input name="visible_to_client" type="checkbox" defaultChecked={deliverable.visible_to_client} className={CHECKBOX} />
                                   Visible to client
@@ -370,6 +458,39 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                                   Save
                                 </button>
                               </form>
+                              <div className="mt-2 space-y-2">
+                                {deliverable.file_key && (
+                                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <a href={`/download/${deliverable.id}`} className="font-medium text-brand-700 underline">
+                                      {deliverable.file_name}
+                                    </a>
+                                    <span className="text-text-primary/60">
+                                      {formatBytes(deliverable.file_size)} · downloaded {deliverable.download_count ?? 0}×
+                                    </span>
+                                    <form action={removeDeliverableFile}>
+                                      <input type="hidden" name="id" value={deliverable.id} />
+                                      <input type="hidden" name="client_id" value={client.id} />
+                                      <ConfirmSubmit message="Remove this file?" label="Remove file" />
+                                    </form>
+                                  </div>
+                                )}
+                                <DeliverableUpload deliverableId={deliverable.id} current={deliverable.file_name} />
+                                {(deliverable.file_key || deliverable.url) && (
+                                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <span className={release.get(deliverable.id)?.released ? "text-success" : "text-warning"}>
+                                      {release.get(deliverable.id)?.released ? "✓ Client can download" : `🔒 ${release.get(deliverable.id)?.reason ?? "Locked"}`}
+                                    </span>
+                                    <form action={setDeliverableRelease}>
+                                      <input type="hidden" name="id" value={deliverable.id} />
+                                      <input type="hidden" name="client_id" value={client.id} />
+                                      <input type="hidden" name="release" value={deliverable.released_at ? "0" : "1"} />
+                                      <button type="submit" className="text-brand-700 underline">
+                                        {deliverable.released_at ? "Undo early release" : "Release now"}
+                                      </button>
+                                    </form>
+                                  </div>
+                                )}
+                              </div>
                               {deliverable.client_feedback && (
                                 <p className="mt-2 rounded-card bg-canvas-warm p-2 text-xs text-text-primary/75">
                                   Client: {deliverable.client_feedback}

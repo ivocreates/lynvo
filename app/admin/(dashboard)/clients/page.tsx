@@ -15,12 +15,14 @@ const STATUS_STYLES: Record<string, string> = {
   archived: "bg-border/50 text-text-primary/60",
 };
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ searchParams }: { searchParams: { archived?: string; deleted?: string } }) {
   await requirePermission("clients.manage");
 
   const db = createClient();
   const [{ data: clientRows }, { data: engagementRows }] = await Promise.all([
-    db.from("clients").select("*").order("created_at", { ascending: false }),
+    searchParams.archived
+      ? db.from("clients").select("*").eq("status", "archived").order("created_at", { ascending: false })
+      : db.from("clients").select("*").neq("status", "archived").order("created_at", { ascending: false }),
     db.from("client_engagements").select("id, client_id, title, status, progress"),
   ]);
 
@@ -34,6 +36,22 @@ export default async function ClientsPage() {
         title="Clients"
         description="Manage client accounts, their engagements, and portal access."
       />
+      {searchParams.deleted && (
+        <p className="mb-4 rounded-card border border-success/40 bg-success/10 px-4 py-2 text-sm text-success">
+          Client deleted. Their invoices and payments are kept in billing.
+        </p>
+      )}
+      <p className="mb-6 text-sm">
+        {searchParams.archived ? (
+          <Link href="/admin/clients" className="text-brand-700 underline">
+            ← Back to active clients
+          </Link>
+        ) : (
+          <Link href="/admin/clients?archived=1" className="text-brand-700 underline">
+            Show archived clients
+          </Link>
+        )}
+      </p>
 
       <form action={createClientRecord} className="mb-8 rounded-card border border-border bg-surface p-5">
         <p className="section-stamp mb-3">NEW CLIENT</p>

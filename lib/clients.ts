@@ -143,6 +143,15 @@ export type Deliverable = {
   reviewed_at: string | null;
   visible_to_client: boolean;
   position: number;
+  file_key?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
+  release_rule?: "immediate" | "after_invoice" | "after_all_paid" | "manual" | null;
+  invoice_id?: string | null;
+  released_at?: string | null;
+  download_count?: number | null;
+  last_downloaded_at?: string | null;
 };
 
 export type ClientReport = {

@@ -397,10 +397,20 @@ export const TABLES: Record<string, TableMeta> = {
       "visible_to_client": "bool",
       "position": "int",
       "created_at": "text",
-      "updated_at": "text"
+      "updated_at": "text",
+      "file_key": "text",
+      "file_name": "text",
+      "file_size": "int",
+      "file_type": "text",
+      "release_rule": "text",
+      "invoice_id": "text",
+      "released_at": "text",
+      "download_count": "int",
+      "last_downloaded_at": "text"
     },
     "relations": {
-      "engagement_id": "client_engagements"
+      "engagement_id": "client_engagements",
+      "invoice_id": "billing_documents"
     },
     "pk": [
       "id"

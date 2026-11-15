@@ -7,6 +7,9 @@ import { createClient } from "@/lib/db/server";
 import { createAdminClient } from "@/lib/db/server";
 import { requirePermission, requireAdmin, recordAudit } from "@/lib/auth";
 import { provisionAccount } from "@/lib/admin/invites";
+import { deleteLogin } from "@/lib/accounts-auth";
+import { deleteFile } from "@/lib/storage";
+import { RELEASE_RULES } from "@/lib/deliverables";
 import { getSiteUrl } from "@/lib/env";
 import {
   CLIENT_STATUSES,
@@ -102,18 +105,56 @@ export async function updateClientRecord(formData: FormData) {
   revalidatePath("/client");
 }
 
+/**
+ * Permanently removes a client: their portal logins, projects, deliverables
+ * (and uploaded files), reports and agreements. Quotes, invoices and payments
+ * are kept for the accounts, unlinked from the deleted client.
+ */
 export async function deleteClientRecord(formData: FormData) {
   await requireAdmin();
 
   const id = String(formData.get("id") ?? "");
+  if (!id || String(formData.get("confirm") ?? "").trim().toUpperCase() !== "DELETE") {
+    redirect(`/admin/clients/${id}?error=${encodeURIComponent("Type DELETE to confirm.")}`);
+  }
+
+  const system = createAdminClient();
+  const [{ data: users }, { data: engagements }] = await Promise.all([
+    system.from("profiles").select("id").eq("client_id", id).eq("role", "client"),
+    system.from("client_engagements").select("id").eq("client_id", id),
+  ]);
+  const engagementIds = ((engagements ?? []) as { id: string }[]).map((row) => row.id);
+  const { data: files } = engagementIds.length
+    ? await system.from("client_deliverables").select("file_key").in("engagement_id", engagementIds)
+    : { data: [] };
+
+  for (const user of (users ?? []) as { id: string }[]) await deleteLogin(user.id).catch(() => undefined);
+  for (const file of (files ?? []) as { file_key: string | null }[]) {
+    if (file.file_key) await deleteFile(file.file_key).catch(() => undefined);
+  }
+
+  await createClient().from("clients").delete().eq("id", id);
+  await recordAudit("delete", "clients", id, { logins: (users ?? []).length });
+
+  revalidatePath("/admin/clients");
+  redirect("/admin/clients?deleted=1");
+}
+
+/** Archive: hides the client from lists and switches off their portal logins. Reversible. */
+export async function archiveClient(formData: FormData) {
+  await requirePermission("clients.manage");
+  const id = String(formData.get("id") ?? "");
+  const restore = formData.get("restore") === "1";
   if (!id) return;
 
   const db = createClient();
-  await db.from("clients").delete().eq("id", id);
-  await recordAudit("delete", "clients", id);
+  await db.from("clients").update({ status: restore ? "active" : "archived" }).eq("id", id);
+  await createAdminClient().from("profiles").update({ is_active: restore }).eq("client_id", id).eq("role", "client");
+  await recordAudit(restore ? "restore" : "archive", "clients", id);
 
   revalidatePath("/admin/clients");
-  redirect("/admin/clients");
+  revalidatePath(`/admin/clients/${id}`);
+  redirect(`/admin/clients/${id}?saved=${restore ? "restored" : "archived"}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +216,11 @@ export async function deleteEngagement(formData: FormData) {
   if (!id) return;
 
   const db = createClient();
+  // Uploaded files live in R2, outside the cascade: remove them first.
+  const { data: files } = await db.from("client_deliverables").select("file_key").eq("engagement_id", id);
+  for (const file of (files ?? []) as { file_key: string | null }[]) {
+    if (file.file_key) await deleteFile(file.file_key).catch(() => undefined);
+  }
   await db.from("client_engagements").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -258,17 +304,50 @@ export async function saveDeliverable(formData: FormData) {
     visible_to_client: formData.get("visible_to_client") === "on",
     position: Number(formData.get("position") ?? 0) || 0,
     delivered_at: status === "delivered" ? new Date().toISOString() : null,
+    ...(formData.has("release_rule")
+      ? {
+          release_rule: (RELEASE_RULES.map((rule) => rule.value) as string[]).includes(String(formData.get("release_rule")))
+            ? String(formData.get("release_rule"))
+            : "after_all_paid",
+          invoice_id: /^[0-9a-f-]{36}$/i.test(String(formData.get("invoice_id") ?? "")) ? String(formData.get("invoice_id")) : null,
+        }
+      : {}),
   };
 
   const db = createClient();
   if (id) {
     await db.from("client_deliverables").update(values).eq("id", id);
   } else {
-    await db.from("client_deliverables").insert({ ...values, engagement_id: engagementId });
+    await db.from("client_deliverables").insert({ release_rule: "after_all_paid", ...values, engagement_id: engagementId });
   }
 
   revalidatePath(`/admin/clients/${clientId}`);
   revalidatePath("/client");
+}
+
+export async function setDeliverableRelease(formData: FormData) {
+  await requirePermission("clients.manage");
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  if (!id) return;
+  const release = formData.get("release") === "1";
+  await createClient().from("client_deliverables").update({ released_at: release ? new Date().toISOString() : null }).eq("id", id);
+  await recordAudit(release ? "release" : "lock", "client_deliverables", id);
+  revalidatePath(`/admin/clients/${clientId}`);
+  revalidatePath("/client/files");
+}
+
+export async function removeDeliverableFile(formData: FormData) {
+  await requirePermission("clients.manage");
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  if (!id) return;
+  const db = createClient();
+  const { data } = await db.from("client_deliverables").select("file_key").eq("id", id).maybeSingle();
+  if (data?.file_key) await deleteFile(String(data.file_key)).catch(() => undefined);
+  await db.from("client_deliverables").update({ file_key: null, file_name: null, file_size: null, file_type: null }).eq("id", id);
+  await recordAudit("remove_file", "client_deliverables", id);
+  revalidatePath(`/admin/clients/${clientId}`);
 }
 
 export async function deleteDeliverable(formData: FormData) {
@@ -279,6 +358,8 @@ export async function deleteDeliverable(formData: FormData) {
   if (!id) return;
 
   const db = createClient();
+  const { data: existing } = await db.from("client_deliverables").select("file_key").eq("id", id).maybeSingle();
+  if (existing?.file_key) await deleteFile(String(existing.file_key)).catch(() => undefined);
   await db.from("client_deliverables").delete().eq("id", id);
 
   revalidatePath(`/admin/clients/${clientId}`);
@@ -398,9 +479,14 @@ export async function revokeClientUser(formData: FormData) {
   const clientId = String(formData.get("client_id") ?? "");
   if (!profileId) return;
 
-  const db = createClient();
-  await db.from("profiles").update({ is_active: false }).eq("id", profileId);
-  await recordAudit("revoke_access", "profiles", profileId, { clientId });
+  if (formData.get("remove") === "1") {
+    await deleteLogin(profileId).catch(() => undefined);
+    await recordAudit("delete_login", "profiles", profileId, { clientId });
+  } else {
+    const db = createClient();
+    await db.from("profiles").update({ is_active: formData.get("restore") === "1" }).eq("id", profileId);
+    await recordAudit(formData.get("restore") === "1" ? "restore_access" : "revoke_access", "profiles", profileId, { clientId });
+  }
 
   revalidatePath(`/admin/clients/${clientId}`);
 }
