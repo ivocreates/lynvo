@@ -58,7 +58,7 @@ export default function ResetPasswordForm() {
         </form>
       )}
 
-      <Link href="/admin/login" className="mt-6 block text-sm text-brand-700 underline">
+      <Link href="/login" className="mt-6 block text-sm text-brand-700 underline">
         Back to sign in
       </Link>
     </div>

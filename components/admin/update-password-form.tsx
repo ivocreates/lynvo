@@ -47,7 +47,7 @@ export default function UpdatePasswordForm() {
       return;
     }
 
-    router.push("/admin/login?reset=1");
+    router.push("/login?reset=1");
     router.refresh();
   }
 

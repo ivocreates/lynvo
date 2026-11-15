@@ -35,14 +35,15 @@ export function siteForHost(rawHost: string | null | undefined): SiteKind {
   const hosts = siteHosts();
   // Until lynvo.studio and lynvo.tech point at this Worker, the app host keeps
   // serving the public pages too. Set SPLIT_DOMAINS=1 once they are attached.
-  if (host === hosts.app) return process.env.SPLIT_DOMAINS === "1" ? "app" : "any";
+  // lynvo.studio and lynvo.tech now point at this Worker; SPLIT_DOMAINS=0 turns host routing off.
+  if (host === hosts.app) return process.env.SPLIT_DOMAINS === "0" ? "any" : "app";
   if (host === hosts.studio) return "studio";
   if (host === hosts.tech) return "tech";
   return "any";
 }
 
 /** Paths that belong to the platform, never to a marketing site. */
-export const PLATFORM_PREFIXES = ["/admin", "/staff", "/client", "/auth"];
+export const PLATFORM_PREFIXES = ["/admin", "/staff", "/client", "/auth", "/login"];
 
 export const isPlatformPath = (pathname: string) =>
   PLATFORM_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

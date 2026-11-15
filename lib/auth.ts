@@ -61,7 +61,7 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
 export async function requireRole(minimum: Role): Promise<Profile> {
   const profile = await getCurrentProfile();
 
-  if (!profile) redirect("/admin/login");
+  if (!profile) redirect("/login?as=team");
   if (ROLE_RANK[profile.role] < ROLE_RANK[minimum]) {
     // Clients and sub-editor staff each have their own home.
     if (profile.role === "client") redirect("/client");
@@ -75,9 +75,9 @@ export async function requireRole(minimum: Role): Promise<Profile> {
 export async function requireClient(): Promise<Profile & { client_id: string }> {
   const profile = await getCurrentProfile();
 
-  if (!profile) redirect("/admin/login");
+  if (!profile) redirect("/login?as=client");
   if (profile.role !== "client") redirect("/admin");
-  if (!profile.client_id) redirect("/admin/login?unlinked=1");
+  if (!profile.client_id) redirect("/login?unlinked=1");
 
   return profile as Profile & { client_id: string };
 }
@@ -118,7 +118,7 @@ export async function can(profile: Profile, permission: Permission) {
 export async function requirePermission(permission: Permission): Promise<Profile> {
   const profile = await getCurrentProfile();
 
-  if (!profile) redirect("/admin/login");
+  if (!profile) redirect("/login?as=team");
   if (profile.role === "client") redirect("/client");
   if (!(await can(profile, permission))) {
     redirect((await getPermissions(profile)).length > 0 || ROLE_RANK[profile.role] >= ROLE_RANK.editor
@@ -133,7 +133,7 @@ export async function requirePermission(permission: Permission): Promise<Profile
 export async function requireConsoleAccess(): Promise<{ profile: Profile; permissions: Permission[] }> {
   const profile = await getCurrentProfile();
 
-  if (!profile) redirect("/admin/login");
+  if (!profile) redirect("/login?as=team");
   if (profile.role === "client") redirect("/client");
 
   const permissions = await getPermissions(profile);

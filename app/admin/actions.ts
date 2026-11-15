@@ -10,5 +10,5 @@ export async function signOut() {
   } catch {
     // Already signed out.
   }
-  redirect("/admin/login");
+  redirect("/login");
 }

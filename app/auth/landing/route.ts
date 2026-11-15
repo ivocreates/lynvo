@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const profile = await getCurrentProfile();
 
-  if (!profile) redirect("/admin/login");
+  if (!profile) redirect("/login");
   if (profile.role === "client") redirect("/client");
   redirect(ROLE_RANK[profile.role] < ROLE_RANK.editor ? "/staff" : "/admin");
 }

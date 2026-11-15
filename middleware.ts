@@ -19,7 +19,8 @@ export async function middleware(request: NextRequest) {
   if (site !== "any" && !isSharedPath(pathname)) {
     if (site === "app") {
       // The platform has no marketing pages of its own.
-      if (pathname === "/") return NextResponse.redirect(new URL("/admin", request.url));
+      // The platform's front door is the sign-in page.
+      if (pathname === "/") return NextResponse.redirect(new URL(getSessionCookie(request) ? "/auth/landing" : "/login", request.url));
       if (pathname === "/tech" || pathname.startsWith("/tech/")) {
         return redirectToHost(request, hosts.tech, pathname.replace(/^\/tech/, "") || "/");
       }
@@ -52,8 +53,10 @@ export async function middleware(request: NextRequest) {
   const publicAdmin = ["/admin/login", "/admin/reset-password", "/admin/update-password"].includes(pathname);
   if (guarded && !publicAdmin && !getSessionCookie(request)) {
     const login = request.nextUrl.clone();
-    login.pathname = "/admin/login";
+    login.pathname = "/login";
     login.search = "";
+    login.searchParams.set("as", pathname.startsWith("/client") ? "client" : "team");
+    if (pathname !== "/admin" && pathname !== "/client" && pathname !== "/staff") login.searchParams.set("next", pathname);
     return NextResponse.redirect(login);
   }
   return NextResponse.next();
