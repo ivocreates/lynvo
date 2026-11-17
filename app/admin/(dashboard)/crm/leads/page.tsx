@@ -25,7 +25,7 @@ type Lead = {
   owner_id: string | null;
 };
 
-const FIELD = "rounded-card border border-border bg-surface px-3 py-2 text-sm focus:border-brand-700 focus:outline-none";
+const FIELD = "min-w-0 rounded-card border border-border bg-surface px-3 py-2 text-base focus:border-brand-700 focus:outline-none sm:text-sm";
 
 export default async function LeadsPage({
   searchParams,
@@ -83,8 +83,8 @@ export default async function LeadsPage({
         </p>
       )}
 
-      <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
-        <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search business, person, phone, city..." className={`${FIELD} min-w-[16rem] flex-1`} />
+      <form method="get" className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <input name="q" defaultValue={searchParams.q ?? ""} placeholder="Search business, person, phone, city..." className={`${FIELD} col-span-2 sm:min-w-[16rem] sm:flex-1`} />
         <select name="status" defaultValue={searchParams.status ?? ""} className={FIELD} aria-label="Stage">
           <option value="">All stages</option>
           {LEAD_STATUSES.map((status) => (
@@ -123,7 +123,53 @@ export default async function LeadsPage({
           No leads match. Add one below or import a research list.
         </div>
       ) : (
-        <div className="mb-10 overflow-x-auto rounded-card border border-border bg-surface">
+        <>
+        {/* Phones: one card per lead with thumb-sized actions. */}
+        <ul className="mb-10 space-y-2 md:hidden">
+          {leads.map((lead) => {
+            const wa = whatsappLink(lead.phone);
+            const overdue = lead.next_follow_up && lead.next_follow_up < today;
+            return (
+              <li key={lead.id} className="rounded-card border border-border bg-surface">
+                <Link href={`/admin/crm/leads/${lead.id}`} className="block p-3">
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="font-medium text-ink-900">{lead.company}</span>
+                    <span className={`shrink-0 rounded-card border px-2 py-0.5 text-[11px] ${LEAD_STATUS_TONES[lead.status] ?? ""}`}>
+                      {LEAD_STATUS_LABELS[lead.status] ?? lead.status}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-xs text-text-primary/60">
+                    {[lead.contact_name, lead.industry, lead.city].filter(Boolean).join(" · ") || LEAD_SOURCE_LABELS[lead.source] || lead.source}
+                  </span>
+                  {lead.next_follow_up && (
+                    <span className={`mt-1 block text-xs ${overdue ? "text-error" : "text-text-primary/60"}`}>
+                      ↻ {overdue ? `overdue since ${lead.next_follow_up}` : lead.next_follow_up}
+                    </span>
+                  )}
+                </Link>
+                {(lead.phone || wa) && (
+                  <div className="grid grid-cols-2 divide-x divide-border border-t border-border text-sm">
+                    {lead.phone ? (
+                      <a href={`tel:+${phoneDigits(lead.phone)}`} className="py-2.5 text-center font-medium text-brand-700">
+                        Call
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                    {wa ? (
+                      <a href={wa} target="_blank" rel="noreferrer" className="py-2.5 text-center font-medium text-brand-700">
+                        WhatsApp
+                      </a>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="mb-10 hidden overflow-x-auto rounded-card border border-border bg-surface md:block">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border bg-canvas-warm">
               <tr>
@@ -186,9 +232,10 @@ export default async function LeadsPage({
             </tbody>
           </table>
         </div>
+        </>
       )}
 
-      <section id="add" className="mb-8 rounded-card border border-border bg-surface p-5">
+      <section id="add" className="mb-8 scroll-mt-20 rounded-card border border-border bg-surface p-4 sm:p-5">
         <h2 className="mb-4 font-display text-lg font-semibold text-ink-900">Add a lead</h2>
         <LeadForm owners={owners} action={createLead} submitLabel="Add lead" defaultOwnerId={profile.id} compact />
       </section>

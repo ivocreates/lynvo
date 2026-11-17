@@ -1,28 +1,33 @@
 import Link from "next/link";
 import { createClient } from "@/lib/db/server";
-import { requireManager, hasRole } from "@/lib/auth";
+import { requireManager, hasRole, can } from "@/lib/auth";
 import { ROLES, STAFF_ROLES, ROLE_LABELS, EMPLOYMENT_TYPES } from "@/lib/roles";
 import PageHeader from "@/components/admin/page-header";
 import InviteForm from "@/components/admin/invite-form";
 import ConfirmSubmit from "@/components/admin/confirm-submit";
+import Flash from "@/components/admin/flash";
+import TeamWebsiteOverview, { type TeamPerson } from "@/components/team/team-website-overview";
+import WebsiteProfileEditor from "@/components/team/website-profile-editor";
 import { deleteStaff, updateStaffAccess, updateStaffDetails } from "./actions";
 
 const FIELD_CLASS =
-  "mt-1 w-full rounded-card border border-border bg-canvas-warm px-2 py-1.5 text-sm focus:border-brand-700 focus:outline-none";
+  "mt-1 w-full rounded-card border border-border bg-canvas-warm px-2 py-1.5 text-base focus:border-brand-700 focus:outline-none sm:text-sm";
 const LABEL_CLASS = "block text-xs uppercase tracking-[0.18em] text-text-primary/60";
 
-export default async function PeoplePage() {
+const BASE_COLUMNS =
+  "id, email, display_name, role, is_active, title, department, phone, employment_type, joined_on, ends_on, manager_id, created_at, avatar_url, bio, skills";
+const WEBSITE_COLUMNS = ", show_on_website, website_order, public_title, social_links";
+
+export default async function PeoplePage({ searchParams }: { searchParams: { saved?: string; error?: string } }) {
   const actor = await requireManager();
   const canManageAccess = hasRole(actor, "super_admin");
   const canInvite = hasRole(actor, "admin");
+  const canPublish = hasRole(actor, "admin") || (await can(actor, "website"));
 
   const db = createClient();
-  const { data } = await db
-    .from("profiles")
-    .select(
-      "id, email, display_name, role, is_active, title, department, phone, employment_type, joined_on, ends_on, manager_id, created_at"
-    )
-    .order("created_at", { ascending: true });
+  let { data, error: websiteError } = await db.from("profiles").select(BASE_COLUMNS + WEBSITE_COLUMNS).order("created_at", { ascending: true });
+  // Before migration 0004 the website columns don't exist; still list everyone.
+  if (websiteError) ({ data } = await db.from("profiles").select(BASE_COLUMNS).order("created_at", { ascending: true }));
 
   const people = ((data ?? []) as Record<string, any>[]).filter((person) => person.role !== "client");
   const managers = people.filter((person) =>
@@ -33,9 +38,20 @@ export default async function PeoplePage() {
     <div>
       <PageHeader
         stamp="TEAM"
-        title="People"
-        description="Invite the team, set roles, and keep employment details current."
+        title="People & team page"
+        description="Invite the team, set roles, keep employment details current, and choose who appears on the public team page."
       />
+      <Flash
+        success={searchParams.saved === "website" ? "Website profile saved." : null}
+        error={searchParams.error === "website" ? "Only admins and people with Website access can change the public team page." : null}
+      />
+      {websiteError ? (
+        <p className="mb-6 rounded-card border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          Website profiles need migration 0004_team_website_profiles.sql (npm run db:migrate:remote).
+        </p>
+      ) : (
+        <TeamWebsiteOverview people={people as TeamPerson[]} canPublish={canPublish} />
+      )}
 
       {canInvite && (
         <p className="mb-6 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-primary/80">
@@ -55,8 +71,8 @@ export default async function PeoplePage() {
           const isSelf = person.id === actor.id;
 
           return (
-            <details key={person.id} className="rounded-card border border-border bg-surface">
-              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-5">
+            <details key={person.id} id={`person-${person.id}`} className="scroll-mt-20 rounded-card border border-border bg-surface">
+              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
                 <div className="min-w-0">
                   <p className="font-display font-semibold text-ink-900">
                     {person.display_name ?? person.email}
@@ -64,8 +80,11 @@ export default async function PeoplePage() {
                   </p>
                   <p className="text-xs text-text-primary/60">{person.email}</p>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:gap-3">
                   {person.title && <span className="text-text-primary/70">{person.title}</span>}
+                  {person.show_on_website && (
+                    <span className="rounded-card bg-success/10 px-2 py-1 font-mono uppercase text-success">on website</span>
+                  )}
                   <span className="rounded-card bg-brand-700/10 px-2 py-1 font-mono uppercase text-brand-700">
                     {ROLE_LABELS[person.role as keyof typeof ROLE_LABELS] ?? person.role}
                   </span>
@@ -79,7 +98,7 @@ export default async function PeoplePage() {
                 </div>
               </summary>
 
-              <div className="grid gap-6 border-t border-border p-5 lg:grid-cols-[1.4fr_1fr]">
+              <div className="grid gap-6 border-t border-border p-4 sm:p-5 lg:grid-cols-[1.4fr_1fr]">
                 <form action={updateStaffDetails} className="grid gap-4 sm:grid-cols-2">
                   <input type="hidden" name="id" value={person.id} />
                   <div>
@@ -258,6 +277,8 @@ export default async function PeoplePage() {
                   )}
                 </div>
               </div>
+
+              {canPublish && !websiteError && <WebsiteProfileEditor person={person as TeamPerson} />}
             </details>
           );
         })}

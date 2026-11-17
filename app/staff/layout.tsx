@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTeamMember, hasRole, getPermissions } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/roles";
 import { signOut } from "@/app/admin/actions";
+import MobileShell from "@/components/layout/mobile-shell";
 import StaffSidebar from "@/components/staff/sidebar";
 
 
@@ -17,7 +18,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen bg-canvas-warm">
-      <aside className="hidden w-60 shrink-0 flex-col bg-ink-900 md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col bg-ink-900 md:sticky md:top-0 md:flex md:h-screen">
         <div className="border-b border-white/10 p-4">
           <Link href="/" className="font-display text-lg font-semibold text-text-inverse">
             LYNVO
@@ -50,22 +51,35 @@ export default async function StaffLayout({ children }: { children: React.ReactN
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3 md:hidden">
-          <Link href="/staff" className="font-display font-semibold text-ink-900">
-            LYNVO TEAM
-          </Link>
-          <form action={signOut}>
-            <button type="submit" className="text-sm text-brand-700 underline">
-              Sign out
-            </button>
-          </form>
-        </header>
-        <div className="md:hidden">
-          <div className="bg-ink-900">
-            <StaffSidebar role={profile.role} permissions={permissions} />
-          </div>
-        </div>
-        <main className="min-w-0 flex-1 p-6 lg:p-10">{children}</main>
+        <MobileShell
+          title="LYNVO TEAM"
+          homeHref="/staff"
+          stamp="TEAM WORKSPACE"
+          nav={<StaffSidebar role={profile.role} permissions={permissions} />}
+          footer={
+            <>
+              <p className="truncate text-sm text-text-inverse">{profile.display_name ?? profile.email}</p>
+              <p className="section-stamp mt-0.5 text-text-inverse/50">{ROLE_LABELS[profile.role]}</p>
+              {hasConsole && (
+                <Link
+                  href="/admin"
+                  className="mt-3 block rounded-card border border-white/20 px-3 py-2.5 text-center text-sm text-text-inverse hover:bg-white/10"
+                >
+                  Open LYNVO OS
+                </Link>
+              )}
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="mt-3 w-full rounded-card border border-white/20 px-3 py-2.5 text-sm text-text-inverse hover:bg-white/10"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          }
+        />
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-10">{children}</main>
       </div>
     </div>
   );

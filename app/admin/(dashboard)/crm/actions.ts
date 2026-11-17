@@ -12,6 +12,7 @@ import {
   LEAD_PRIORITIES,
   LEAD_SOURCES,
   LEAD_STATUSES,
+  QUICK_CALL_OUTCOMES,
   parseLeadCsv,
 } from "@/lib/crm";
 
@@ -155,7 +156,11 @@ export async function logActivity(formData: FormData) {
   const outcome = ACTIVITY_OUTCOMES.some((entry) => entry.value === outcomeRaw) ? outcomeRaw : null;
 
   let followUp = text(formData, "follow_up_on", 10);
-  const followUpDays = Number(formData.get("follow_up_days") ?? "");
+  let followUpDays = Number(formData.get("follow_up_days") ?? "");
+  // Call mode submits one form with an outcome button; use that outcome's usual follow-up gap.
+  if (formData.get("quick") === "1" && !formData.get("follow_up_days")) {
+    followUpDays = QUICK_CALL_OUTCOMES.find((entry) => entry.outcome === outcome)?.followUpDays ?? 0;
+  }
   if (!followUp && Number.isFinite(followUpDays) && followUpDays > 0) followUp = addDays(todayIso(), followUpDays);
 
   const db = createClient();

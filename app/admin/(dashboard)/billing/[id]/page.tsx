@@ -399,7 +399,8 @@ export default async function BillingDocumentHub({
 
           <section className="rounded-card border border-border bg-surface p-5">
             <h2 className="font-display text-lg font-semibold text-ink-900">Line items</h2>
-            <table className="mt-4 w-full text-left text-sm">
+            <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
               <thead className="border-b border-border text-text-primary/60">
                 <tr>
                   <th className="py-2 pr-2 font-medium">Item</th>
@@ -425,6 +426,7 @@ export default async function BillingDocumentHub({
                 ))}
               </tbody>
             </table>
+            </div>
             <dl className="ml-auto mt-4 w-full max-w-xs space-y-1 text-sm">
               <div className="flex justify-between"><dt className="text-text-primary/60">Subtotal</dt><dd>{formatMoney(Number(doc.subtotal), doc.currency)}</dd></div>
               {Number(doc.discount_amount) > 0 && (

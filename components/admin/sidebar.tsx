@@ -40,6 +40,8 @@ import {
   Landmark,
   BookText,
   CalendarCheck,
+  Mail,
+  Zap,
 } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
@@ -48,7 +50,12 @@ type Icon = typeof LayoutDashboard;
 type NavItem = { href: string; label: string; icon: Icon; minRole?: Role; permission?: Permission };
 type NavGroup = { key: string; label: string; icon: Icon; items: NavItem[] };
 
-const STANDALONE: NavItem[] = [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }];
+// Always visible (not inside a collapsible group), so these are one tap away.
+const STANDALONE: NavItem[] = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/letters", label: "Letters", icon: Mail, permission: "letters" },
+  { href: "/admin/crm/today", label: "Call mode", icon: Zap, permission: "crm" },
+];
 
 const GROUPS: NavGroup[] = [
   {
@@ -101,7 +108,7 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/projects", label: "Work / portfolio", icon: FolderKanban, permission: "website" },
       { href: "/admin/services", label: "Services", icon: Wrench, permission: "website" },
       { href: "/admin/blog", label: "Blog", icon: FileText, permission: "website" },
-      { href: "/admin/team", label: "Team page", icon: Users, permission: "website" },
+      { href: "/admin/team", label: "Team page (non-staff)", icon: Users, permission: "website" },
       { href: "/admin/careers", label: "Careers", icon: Briefcase, permission: "website" },
       { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, permission: "website" },
       { href: "/admin/reviews", label: "Reviews", icon: Star, permission: "website" },
@@ -120,7 +127,7 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/meetings", label: "Meetings", icon: CalendarClock, minRole: "junior_partner" },
       { href: "/admin/documents", label: "HR documents", icon: FileSignature, minRole: "junior_partner" },
       { href: "/admin/certificates", label: "Certificates", icon: Award, minRole: "junior_partner" },
-      { href: "/admin/admins", label: "People", icon: ShieldCheck, minRole: "junior_partner" },
+      { href: "/admin/admins", label: "People & team page", icon: ShieldCheck, minRole: "junior_partner" },
       { href: "/admin/access", label: "Access & permissions", icon: KeyRound, minRole: "admin" },
     ],
   },

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/db/server";
+import { createAdminClient, createClient } from "@/lib/db/server";
 
 /**
  * Generic safe select: returns [] instead of throwing when the database
@@ -143,8 +143,47 @@ export const getProjects = (site: PublicSite = "studio") =>
 export const getBlogPosts = (site: PublicSite = "studio") =>
   siteSelect<BlogPost>("blog_posts", site, (q) => q.select("*").eq("status", "published").order("published_at", { ascending: false }));
 
-export const getTeamMembers = () =>
-  safeSelect<TeamMember>("team_members", (q) => q.select("*").eq("is_active", true).order("order", { ascending: true }));
+/**
+ * Public team: employees an admin has switched on (People → On website),
+ * in their chosen order, then manual entries from Websites → Team page.
+ * Profiles are private, so this reads them with the system client and picks
+ * only the public columns.
+ */
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const manual = await safeSelect<TeamMember>("team_members", (q) => q.select("*").eq("is_active", true).order("order", { ascending: true }));
+
+  let employees: TeamMember[] = [];
+  try {
+    const { data, error } = await createAdminClient()
+      .from("profiles")
+      .select("id, display_name, email, title, public_title, bio, skills, avatar_url, social_links, website_order")
+      .eq("show_on_website", true)
+      .eq("is_active", true)
+      .neq("role", "client")
+      .order("website_order", { ascending: true })
+      .order("display_name", { ascending: true });
+    if (error) console.error("[queries] team profiles failed (has migration 0004 run?):", error.message);
+    employees = ((data ?? []) as Record<string, any>[])
+      .filter((row) => row.display_name)
+      .map((row) => ({
+        id: `profile-${row.id}`,
+        display_name: String(row.display_name),
+        role: row.public_title || row.title || null,
+        is_active: true,
+        bio: row.bio ?? null,
+        skills: Array.isArray(row.skills) ? row.skills : null,
+        social_links: row.social_links && typeof row.social_links === "object" ? row.social_links : null,
+        image_url: row.avatar_url ?? null,
+      }));
+  } catch (error) {
+    if ((error as { digest?: string })?.digest === "DYNAMIC_SERVER_USAGE") throw error;
+    console.error("[queries] team profiles failed:", error);
+  }
+
+  // A person added both ways appears once, as their employee profile.
+  const names = new Set(employees.map((member) => member.display_name.trim().toLowerCase()));
+  return [...employees, ...manual.filter((member) => !names.has(member.display_name.trim().toLowerCase()))];
+}
 
 export const getReviews = () =>
   safeSelect<Review>("reviews", (q) => q.select("*").eq("status", "approved"));

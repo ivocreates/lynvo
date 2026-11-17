@@ -369,6 +369,14 @@ export const HR_DOCUMENT_SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    title: "Company letters",
+    description: "Bank, telecom and other letters written under Office → Letters. Signatures and stamps come from the fields above.",
+    keys: [
+      { key: "letter_reference_prefix", label: "Letter reference prefix", type: "text", help: "Letters are numbered PREFIX/YEAR/001. Default LYNVO/LTR." },
+      { key: "letter_footer_note", label: "Letter footer note", type: "textarea", help: "Optional line under the LLPIN / GSTIN in the letter footer." },
+    ],
+  },
+  {
     title: "Legal templates",
     description: "Used when generating client agreements and HR letters from templates.",
     keys: [

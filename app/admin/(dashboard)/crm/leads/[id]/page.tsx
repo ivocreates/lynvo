@@ -88,7 +88,23 @@ export default async function LeadPage({
           : null;
 
   return (
-    <div>
+    <div className="pb-20 md:pb-0">
+      {/* Phones: the main actions stay under your thumb. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 grid auto-cols-fr grid-flow-col gap-2 border-t border-border bg-surface/95 p-3 backdrop-blur md:hidden">
+        {lead.phone && (
+          <a href={`tel:+${phoneDigits(lead.phone)}`} className="rounded-card bg-brand-700 py-3 text-center text-sm font-semibold text-text-inverse">
+            Call
+          </a>
+        )}
+        {wa && (
+          <a href={wa} target="_blank" rel="noreferrer" className="rounded-card border border-border py-3 text-center text-sm font-medium text-ink-900">
+            WhatsApp
+          </a>
+        )}
+        <a href="#log" className="rounded-card border border-border py-3 text-center text-sm font-medium text-ink-900">
+          Log
+        </a>
+      </div>
       <div className="mb-4">
         <Link href="/admin/crm/leads" className="text-sm text-brand-700 underline">
           Leads
@@ -108,7 +124,7 @@ export default async function LeadPage({
             {lead.estimated_value ? ` · worth ~${formatMoney(Number(lead.estimated_value), lead.currency)}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="hidden flex-wrap gap-2 md:flex">
           {lead.phone && (
             <a href={`tel:+${phoneDigits(lead.phone)}`} className="rounded-card bg-brand-700 px-4 py-2 text-sm font-medium text-text-inverse hover:bg-ink-900">
               Call {lead.phone}
@@ -126,7 +142,7 @@ export default async function LeadPage({
           )}
         </div>
       </div>
-      <CrmNav active="leads" />
+      <CrmNav active="leads" fab={false} />
 
       <Flash
         success={success}
@@ -135,19 +151,19 @@ export default async function LeadPage({
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <div className="space-y-6">
-          <section className="rounded-card border border-border bg-surface p-5">
+          <section id="log" className="scroll-mt-20 rounded-card border border-border bg-surface p-4 sm:p-5">
             <h2 className="font-display text-lg font-semibold text-ink-900">Log a call</h2>
             <p className="mt-1 text-xs text-text-primary/60">One tap logs the call and schedules the follow-up automatically.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {QUICK_CALL_OUTCOMES.map((entry) => (
-                <form key={entry.outcome} action={logActivity}>
+                <form key={entry.outcome} action={logActivity} className="[&>button]:w-full">
                   <input type="hidden" name="lead_id" value={lead.id} />
                   <input type="hidden" name="kind" value="call" />
                   <input type="hidden" name="outcome" value={entry.outcome} />
                   {entry.followUpDays && <input type="hidden" name="follow_up_days" value={entry.followUpDays} />}
                   <button
                     type="submit"
-                    className={`rounded-card border px-3 py-1.5 text-sm hover:bg-canvas-warm ${
+                    className={`rounded-card border px-3 py-2.5 text-left text-sm hover:bg-canvas-warm sm:py-1.5 ${
                       entry.outcome === "meeting_booked" || entry.outcome === "proposal_requested"
                         ? "border-success/50 text-success"
                         : entry.outcome === "not_interested"

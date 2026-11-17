@@ -341,5 +341,7 @@ export const POLICIES: Record<string, TablePolicy> = {
   // ---------------------------------------------------------------- sales & accounts
   crm_leads: managedBy((ctx) => perm(ctx, "crm")),
   crm_activities: managedBy((ctx) => perm(ctx, "crm")),
+  // Company letters (migration 0003): anyone holding the `letters` permission (admins always do).
+  letters: managedBy((ctx) => perm(ctx, "letters")),
   ledger_entries: managedBy((ctx) => perm(ctx, "accounts")),
 };

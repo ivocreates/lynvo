@@ -145,7 +145,8 @@ export default async function ClientAccountPage({
             {docs.length === 0 ? (
               <p className="mt-3 text-sm text-text-primary/70">Nothing billed yet.</p>
             ) : (
-              <table className="mt-4 w-full text-left text-sm">
+              <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
                 <thead className="border-b border-border text-text-primary/60">
                   <tr>
                     <th className="py-2 pr-2 font-medium">Document</th>
@@ -179,6 +180,7 @@ export default async function ClientAccountPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
 

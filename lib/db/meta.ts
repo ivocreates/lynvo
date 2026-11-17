@@ -55,7 +55,12 @@ export const TABLES: Record<string, TableMeta> = {
       "joined_on": "text",
       "ends_on": "text",
       "manager_id": "text",
-      "client_id": "text"
+      "client_id": "text",
+      // migrations/0004_team_website_profiles.sql
+      "show_on_website": "bool",
+      "website_order": "int",
+      "public_title": "text",
+      "social_links": "json"
     },
     "relations": {
       "manager_id": "profiles",
@@ -569,6 +574,30 @@ export const TABLES: Record<string, TableMeta> = {
     },
     "relations": {
       "lead_id": "crm_leads",
+      "created_by": "profiles"
+    },
+    "pk": [
+      "id"
+    ]
+  },
+  // Added by migrations/0003_letters.sql (not part of the Supabase port).
+  "letters": {
+    "columns": {
+      "id": "text",
+      "title": "text",
+      "reference": "text",
+      "letter_date": "text",
+      "recipient": "text",
+      "subject": "text",
+      "body": "text",
+      "placements": "json",
+      "show_letterhead": "bool",
+      "status": "text",
+      "created_by": "text",
+      "created_at": "text",
+      "updated_at": "text"
+    },
+    "relations": {
       "created_by": "profiles"
     },
     "pk": [

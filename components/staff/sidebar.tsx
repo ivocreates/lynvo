@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, UserCog, ListChecks, Target, FileText, FolderLock, ReceiptText } from "lucide-react";
+import { LayoutDashboard, Users, UserCog, ListChecks, Target, FileText, FolderLock, ReceiptText, PhoneCall } from "lucide-react";
 import { ROLE_RANK, type Role } from "@/lib/roles";
 import type { Permission } from "@/lib/permissions";
 
@@ -10,6 +10,7 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard; minRole?
   { href: "/staff", label: "Overview", icon: LayoutDashboard },
   { href: "/staff/tasks", label: "My tasks", icon: ListChecks },
   { href: "/staff/quotes", label: "My quotes", icon: ReceiptText, permission: "billing.draft" },
+  { href: "/admin/crm/today", label: "Sales CRM · call mode", icon: PhoneCall, permission: "crm" },
   { href: "/staff/goals", label: "Goals", icon: Target },
   { href: "/staff/notes", label: "Notes", icon: FileText },
   { href: "/staff/documents", label: "My documents", icon: FolderLock },

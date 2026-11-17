@@ -136,13 +136,40 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         </p>
       )}
 
+      {(() => {
+        const isAdmin = hasRole(profile, "admin");
+        const actions = [
+          has("letters") && { href: "/admin/letters/new", label: "Write a letter" },
+          has("crm") && { href: "/admin/crm/today", label: "Start calling" },
+          has("billing.manage") && { href: "/admin/billing/new?type=quote", label: "New quote" },
+          has("clients.manage") && { href: "/admin/clients", label: "Clients" },
+          isManager && { href: "/admin/admins", label: "People & team page" },
+          isAdmin && { href: "/admin/access", label: "Access & permissions" },
+        ].filter(Boolean) as { href: string; label: string }[];
+        return actions.length ? (
+          <nav aria-label="Quick actions" className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+            {actions.map((action, index) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`shrink-0 rounded-card px-4 py-2.5 text-sm font-medium ${
+                  index === 0 ? "bg-brand-700 text-text-inverse hover:bg-ink-900" : "border border-border bg-surface text-ink-900 hover:bg-canvas-warm"
+                }`}
+              >
+                {action.label}
+              </Link>
+            ))}
+          </nav>
+        ) : null;
+      })()}
+
       <div className="space-y-8">
         {sections.map((section) => (
           <section key={section.title}>
             <h2 className="mb-3 font-display text-lg font-semibold text-ink-900">{section.title}</h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
               {section.metrics.map((metric) => (
-                <Link key={metric.label} href={metric.href} className="archive-card block p-5">
+                <Link key={metric.label} href={metric.href} className="archive-card block p-4 sm:p-5">
                   <p className="section-stamp">{metric.label.toUpperCase()}</p>
                   <p className={`mt-2 font-display text-2xl font-semibold ${metric.tone ?? "text-ink-900"}`}>{metric.value}</p>
                   <p className="mt-1 text-xs text-text-primary/60">{metric.detail}</p>

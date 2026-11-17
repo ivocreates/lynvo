@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/db/server";
 import { createAdminClient } from "@/lib/db/server";
-import { requireSuperAdmin, requireManager, requireAdmin, recordAudit } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { requireSuperAdmin, requireManager, requireAdmin, recordAudit, can, hasRole } from "@/lib/auth";
+import { skillsFrom, socialLinksFrom } from "@/lib/team-profile";
 import { EMPLOYMENT_TYPES, isRole, ROLE_LABELS, ROLE_RANK } from "@/lib/roles";
 import { provisionAccount } from "@/lib/admin/invites";
 import { deleteLogin } from "@/lib/accounts-auth";
@@ -187,4 +189,56 @@ export async function inviteStaff(_prev: AdminsState, formData: FormData): Promi
       : `Invite link created for ${email}. Email delivery is unavailable, so send this link yourself.`,
     link: result.link,
   };
+}
+
+// ---------------------------------------------------------------- public team page
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Admins and anyone with the Website permission decide who is on the public team page. */
+async function requireTeamPublisher() {
+  const actor = await requireManager();
+  if (!hasRole(actor, "admin") && !(await can(actor, "website"))) redirect("/admin/admins?error=website");
+  return actor;
+}
+
+function refreshTeamPages() {
+  revalidatePath("/admin/admins");
+  revalidatePath("/staff/profile");
+  revalidatePath("/team");
+  revalidatePath("/about");
+  revalidatePath("/");
+}
+
+/** One-tap show / hide on lynvo.studio/team. */
+export async function setOnWebsite(formData: FormData) {
+  await requireTeamPublisher();
+  const id = String(formData.get("id") ?? "");
+  if (!UUID_RE.test(id)) return;
+  const show = formData.get("show") === "1";
+  const { error } = await createClient().from("profiles").update({ show_on_website: show }).eq("id", id);
+  if (!error) await recordAudit("update", "profiles", id, { show_on_website: show });
+  refreshTeamPages();
+}
+
+/** Everything the public team card shows, editable by an admin for anyone. */
+export async function updateWebsiteProfile(formData: FormData) {
+  await requireTeamPublisher();
+  const id = String(formData.get("id") ?? "");
+  if (!UUID_RE.test(id)) return;
+
+  const order = Number(formData.get("website_order") ?? 0);
+  const values = {
+    show_on_website: formData.get("show_on_website") === "on",
+    website_order: Number.isFinite(order) ? Math.max(0, Math.min(999, Math.round(order))) : 0,
+    public_title: String(formData.get("public_title") ?? "").trim().slice(0, 120) || null,
+    bio: String(formData.get("bio") ?? "").trim().slice(0, 2000) || null,
+    skills: skillsFrom(formData.get("skills")),
+    social_links: socialLinksFrom(formData),
+  };
+
+  const { error } = await createClient().from("profiles").update(values).eq("id", id);
+  if (!error) await recordAudit("update", "profiles", id, { fields: Object.keys(values) });
+  refreshTeamPages();
+  redirect(`/admin/admins?saved=website#person-${id}`);
 }

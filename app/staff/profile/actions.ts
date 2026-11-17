@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/db/server";
 import { requireTeamMember } from "@/lib/auth";
+import { socialLinksFrom } from "@/lib/team-profile";
 
 export type ProfileState = { ok: boolean; message: string };
 
@@ -50,7 +51,11 @@ export async function updateOwnProfile(
   }
 
   const db = createClient();
-  const { error } = await db.from("profiles").update(parsed.data).eq("id", profile.id);
+  // Self-service fields only: whether you appear on the website is an admin's call.
+  const { error } = await db
+    .from("profiles")
+    .update({ ...parsed.data, social_links: socialLinksFrom(formData) })
+    .eq("id", profile.id);
 
   if (error) {
     return { ok: false, message: "Could not save your profile. Please try again." };
@@ -58,5 +63,7 @@ export async function updateOwnProfile(
 
   revalidatePath("/staff/profile");
   revalidatePath("/staff/directory");
+  revalidatePath("/team");
+  revalidatePath("/admin/admins");
   return { ok: true, message: "Profile saved." };
 }

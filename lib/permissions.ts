@@ -2,7 +2,7 @@
 
 import { ROLE_RANK, type Role } from "@/lib/roles";
 
-export type Permission = "billing.manage" | "billing.draft" | "clients.manage" | "crm" | "website" | "accounts";
+export type Permission = "billing.manage" | "billing.draft" | "clients.manage" | "crm" | "website" | "accounts" | "letters";
 
 export const PERMISSIONS: { key: Permission; label: string; description: string }[] = [
   {
@@ -29,6 +29,11 @@ export const PERMISSIONS: { key: Permission; label: string; description: string 
     key: "accounts",
     label: "Accounts & tax",
     description: "Income and expense ledger, profit & loss, GST and TDS summaries, tax estimates and compliance dates.",
+  },
+  {
+    key: "letters",
+    label: "Company letters",
+    description: "Write letters on the LYNVO letterhead (banks, telecom, NOCs) and place the partners' signatures and the company stamp.",
   },
   {
     key: "website",

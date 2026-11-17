@@ -88,7 +88,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
         stamp="SALES & MARKETING"
         title={`Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 17 ? "afternoon" : "evening"}, ${profile.display_name?.split(" ")[0] ?? "there"}`}
         description="Today's calls, follow-ups and the pipeline for lynvo.studio and lynvo.tech."
-        action={{ href: "/admin/crm/leads#add", label: "Add lead" }}
+        action={{ href: "/admin/crm/today", label: "Start calling" }}
       />
       <CrmNav active="pipeline" />
       <Flash success={searchParams.saved ? "Updated." : null} />
@@ -108,11 +108,11 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
         </Link>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.label} className="archive-card p-5">
+          <div key={card.label} className="archive-card p-3 sm:p-5">
             <p className="section-stamp">{card.label.toUpperCase()}</p>
-            <p className={`mt-2 font-display text-3xl font-semibold ${card.tone ?? "text-ink-900"}`}>{card.value}</p>
+            <p className={`mt-2 font-display text-2xl font-semibold sm:text-3xl ${card.tone ?? "text-ink-900"}`}>{card.value}</p>
             {card.progress != null && (
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas-warm">
                 <div className="h-full bg-brand-700" style={{ width: `${Math.min(100, Math.round(card.progress * 100))}%` }} />
@@ -123,12 +123,17 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
         ))}
       </div>
 
-      <section className="mb-10 rounded-card border border-border bg-surface p-5">
+      <section className="mb-10 rounded-card border border-border bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-lg font-semibold text-ink-900">Today&apos;s call list</h2>
-          <Link href="/admin/crm/leads?view=due" className="text-sm text-brand-700 underline">
-            Open as list
-          </Link>
+          <span className="flex gap-3 text-sm">
+            <Link href="/admin/crm/today" className="font-medium text-brand-700 underline">
+              Call mode
+            </Link>
+            <Link href="/admin/crm/leads?view=due" className="text-brand-700 underline">
+              Open as list
+            </Link>
+          </span>
         </div>
         {due.length === 0 ? (
           <p className="mt-3 text-sm text-text-primary/70">
@@ -165,12 +170,12 @@ export default async function PipelinePage({ searchParams }: { searchParams: { m
 
       <section>
         <h2 className="mb-4 font-display text-lg font-semibold text-ink-900">Pipeline</h2>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:snap-none sm:gap-4 sm:px-0">
           {LEAD_STATUSES.map((column) => {
             const items = leads.filter((lead) => lead.status === column.value);
             const value = items.reduce((sum, lead) => sum + Number(lead.estimated_value ?? 0), 0);
             return (
-              <div key={column.value} className="w-64 shrink-0 rounded-card border border-border bg-canvas-warm/60 p-3">
+              <div key={column.value} className="w-[80vw] max-w-[18rem] shrink-0 snap-start rounded-card border border-border bg-canvas-warm/60 p-3 sm:w-64">
                 <div className="mb-3 flex items-center justify-between">
                   <span className={`rounded-card border px-2 py-0.5 text-xs font-medium ${column.tone}`}>{column.label}</span>
                   <span className="text-xs text-text-primary/60">

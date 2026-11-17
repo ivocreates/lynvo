@@ -53,15 +53,20 @@ type Block =
   | { kind: "quote"; text: string }
   | { kind: "code"; text: string }
   | { kind: "img"; alt: string; src: string; caption?: string }
+  | { kind: "table"; rows: string[][] }
+  | { kind: "pagebreak" }
   | { kind: "hr" };
 
-function parse(source: string): Block[] {
+const tableCells = (line: string) => line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+
+/** `breaks` keeps single newlines inside a paragraph (addresses, sign-offs) and enables [[page]] breaks. */
+function parse(source: string, breaks = false): Block[] {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
   let paragraph: string[] = [];
 
   const flush = () => {
-    if (paragraph.length) blocks.push({ kind: "p", text: paragraph.join(" ") });
+    if (paragraph.length) blocks.push({ kind: "p", text: paragraph.join(breaks ? "\n" : " ") });
     paragraph = [];
   };
 
@@ -78,6 +83,23 @@ function parse(source: string): Block[] {
     }
     if (!line) {
       flush();
+      continue;
+    }
+    if (breaks && /^\[\[\s*page(\s*break)?\s*\]\]$/i.test(line)) {
+      flush();
+      blocks.push({ kind: "pagebreak" });
+      continue;
+    }
+    // | a | b | rows form a table; the |---|---| separator row is skipped.
+    if (line.startsWith("|") && line.length > 1) {
+      flush();
+      const rows: string[][] = [];
+      for (; i < lines.length && lines[i].trim().startsWith("|"); i += 1) {
+        const cells = tableCells(lines[i].trim());
+        if (!cells.every((cell) => /^:?-{2,}:?$/.test(cell))) rows.push(cells);
+      }
+      i -= 1;
+      if (rows.length) blocks.push({ kind: "table", rows });
       continue;
     }
     const image = /^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/.exec(line);
@@ -177,9 +199,113 @@ export default function Markdown({ source, className = "" }: { source: string; c
             );
           }
           case "hr":
+          case "pagebreak":
             return <hr key={key} className="my-8 border-border" />;
+          case "table":
+            return (
+              <div key={key} className="overflow-x-auto">
+                <MarkdownTable rows={block.rows} keyPrefix={key} className="text-base" />
+              </div>
+            );
           default:
             return <p key={key}>{inline(block.text, key)}</p>;
+        }
+      })}
+    </div>
+  );
+}
+
+function MarkdownTable({ rows, keyPrefix, className = "" }: { rows: string[][]; keyPrefix: string; className?: string }) {
+  const [head, ...body] = rows;
+  return (
+    <table className={`w-full border-collapse text-left ${className}`}>
+      <thead>
+        <tr className="border-y border-black/25 bg-black/[0.04]">
+          {head.map((cell, index) => (
+            <th key={index} className="px-2 py-1.5 font-semibold">
+              {inline(cell, `${keyPrefix}-h${index}`)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {body.map((row, rowIndex) => (
+          <tr key={rowIndex} className="border-b border-black/10">
+            {head.map((_, cellIndex) => (
+              <td key={cellIndex} className="px-2 py-1.5 align-top">
+                {inline(row[cellIndex] ?? "", `${keyPrefix}-${rowIndex}-${cellIndex}`)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * Compact rendering for printed letters: 11pt type, single newlines kept,
+ * tables and [[page]] breaks. Same safe parser as blog posts.
+ */
+export function LetterMarkdown({ source }: { source: string }) {
+  const blocks = parse(source, true);
+
+  return (
+    <div className="space-y-3 text-[11pt] leading-[1.55] text-ink-900">
+      {blocks.map((block, index) => {
+        const key = `l-${index}`;
+        switch (block.kind) {
+          case "h":
+            return block.level === 1 ? (
+              <h2 key={key} className="break-after-avoid pt-2 text-center font-display text-[14pt] font-semibold uppercase tracking-wide">
+                {inline(block.text, key)}
+              </h2>
+            ) : block.level === 2 ? (
+              <h3 key={key} className="break-after-avoid pt-2 font-display text-[12pt] font-semibold">{inline(block.text, key)}</h3>
+            ) : (
+              <h4 key={key} className="break-after-avoid pt-1 text-[10pt] font-semibold uppercase tracking-wide">{inline(block.text, key)}</h4>
+            );
+          case "ul":
+          case "ol": {
+            const List = block.kind === "ul" ? "ul" : "ol";
+            return (
+              <List key={key} className={`space-y-1 pl-6 ${block.kind === "ul" ? "list-disc" : "list-decimal"}`}>
+                {block.items.map((item, itemIndex) => (
+                  <li key={itemIndex} className="break-inside-avoid">{inline(item, `${key}-${itemIndex}`)}</li>
+                ))}
+              </List>
+            );
+          }
+          case "quote":
+            return (
+              <blockquote key={key} className="border-l-2 border-ink-900/40 pl-4 italic">
+                {inline(block.text, key)}
+              </blockquote>
+            );
+          case "code":
+            return (
+              <pre key={key} className="whitespace-pre-wrap font-mono text-[10pt]">
+                {block.text}
+              </pre>
+            );
+          case "img": {
+            const src = safeUrl(block.src);
+            if (!src) return <Fragment key={key} />;
+            // eslint-disable-next-line @next/next/no-img-element
+            return <img key={key} src={src} alt={block.alt} className="max-h-[60mm] max-w-full object-contain" />;
+          }
+          case "table":
+            return <MarkdownTable key={key} rows={block.rows} keyPrefix={key} className="break-inside-avoid text-[10pt]" />;
+          case "pagebreak":
+            return <div key={key} aria-hidden className="break-after-page" data-pagebreak="" />;
+          case "hr":
+            return <hr key={key} className="border-ink-900/25" />;
+          default:
+            return (
+              <p key={key} className="whitespace-pre-line text-justify">
+                {inline(block.text, key)}
+              </p>
+            );
         }
       })}
     </div>
